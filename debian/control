@@ -1,0 +1,23 @@
+Source: megapixels
+Section: x11
+Priority: optional
+Maintainer: DebianOnMobile Maintainers <debian-on-mobile-maintainers@alioth-lists.debian.net>
+Uploaders: Arnaud Ferraris <arnaud.ferraris@gmail.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ libgtk-3-dev,
+ meson,
+Standards-Version: 4.5.0
+Homepage: https://git.sr.ht/~martijnbraam/megapixels
+Vcs-Browser: https://salsa.debian.org/DebianOnMobile-team/megapixels
+Vcs-Git: https://salsa.debian.org/DebianOnMobile-team/megapixels.git
+Rules-Requires-Root: no
+
+Package: megapixels
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: GTK3 camera app for mobile using the V4L2 media request API
+ Megapixels is a GTK3 camera application that knows how to deal with the V4L2
+ media request API.
