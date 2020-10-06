@@ -14,9 +14,9 @@
 #include <asm/errno.h>
 #include <wordexp.h>
 #include <gtk/gtk.h>
+#include <tiffio.h>
 #include "config.h"
 #include "ini.h"
-#include "bayer.h"
 #include "quickdebayer.h"
 
 enum io_method {
@@ -25,35 +25,50 @@ enum io_method {
 	IO_METHOD_USERPTR,
 };
 
+#define TIFFTAG_FORWARDMATRIX1 50964
+
 struct buffer {
 	void *start;
 	size_t length;
 };
 
+struct camerainfo {
+	char dev_name[260];
+	unsigned int entity_id;
+	char dev[260];
+	int width;
+	int height;
+	int rate;
+	int rotate;
+	int fmt;
+	int mbus;
+	int fd;
+
+	float colormatrix[9];
+	float forwardmatrix[9];
+	int blacklevel;
+	int whitelevel;
+
+	float focallength;
+	float cropfactor;
+	double fnumber;
+
+	int has_af_c;
+	int has_af_s;
+};
+
+static float colormatrix_srgb[] = {
+	3.2409, -1.5373, -0.4986,
+	-0.9692, 1.8759, 0.0415,
+	0.0556, -0.2039, 1.0569
+};
+
 struct buffer *buffers;
 static unsigned int n_buffers;
 
-// Rear camera
-static char *rear_dev_name;
-static unsigned int rear_entity_id;
-static char rear_dev[260];
-static int rear_width = -1;
-static int rear_height = -1;
-static int rear_rate = 30;
-static int rear_rotate = 0;
-static int rear_fmt = V4L2_PIX_FMT_RGB24;
-static int rear_mbus = MEDIA_BUS_FMT_RGB888_1X24;
-
-// Front camera
-static char *front_dev_name;
-static unsigned int front_entity_id;
-static char front_dev[260];
-static int front_width = -1;
-static int front_height = -1;
-static int front_rate = 30;
-static int front_rotate = 0;
-static int front_fmt = V4L2_PIX_FMT_RGB24;
-static int front_mbus = MEDIA_BUS_FMT_RGB888_1X24;
+struct camerainfo rear_cam;
+struct camerainfo front_cam;
+struct camerainfo current;
 
 // Camera interface
 static char *media_drv_name;
@@ -61,20 +76,22 @@ static unsigned int interface_entity_id;
 static char dev_name[260];
 static int media_fd;
 static int video_fd;
+static char *exif_make;
+static char *exif_model;
 
 // State
 static int ready = 0;
-static int current_width = -1;
-static int current_height = -1;
-static int current_fmt = 0;
-static int current_rotate = 0;
-static int current_fd;
 static int capture = 0;
 static int current_is_rear = 1;
 static cairo_surface_t *surface = NULL;
 static int preview_width = -1;
 static int preview_height = -1;
 static char *last_path = NULL;
+static int auto_exposure = 1;
+static int auto_gain = 1;
+static int burst_length = 5;
+static char burst_dir[23];
+static char processing_script[512];
 
 // Widgets
 GtkWidget *preview;
@@ -219,12 +236,32 @@ v4l2_ctrl_set(int fd, uint32_t id, int val)
 	return 0;
 }
 
+static int
+v4l2_has_control(int fd, int control_id)
+{
+	struct v4l2_queryctrl queryctrl;
+	int ret;
+
+	memset(&queryctrl, 0, sizeof(queryctrl));
+
+	queryctrl.id = control_id;
+	ret = xioctl(fd, VIDIOC_QUERYCTRL, &queryctrl);
+	if (ret)
+		return 0;
+
+	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) {
+		return 0;
+	}
+
+	return 1;
+}
+
 static void
 init_sensor(char *fn, int width, int height, int mbus, int rate)
 {
 	int fd;
-	struct v4l2_subdev_frame_interval interval;
-	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev_frame_interval interval = {};
+	struct v4l2_subdev_format fmt = {};
 	fd = open(fn, O_RDWR);
 
 	g_printerr("Setting sensor rate to %d\n", rate);
@@ -256,10 +293,29 @@ init_sensor(char *fn, int width, int height, int mbus, int rate)
 		fmt.format.width, fmt.format.height,
 		fmt.format.code);
 
-	// Placeholder, default is also 1
-	//v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 1);
-	close(current_fd);
-	current_fd = fd;
+	// Trigger continuous auto focus if the sensor supports it
+	if (v4l2_has_control(fd, V4L2_CID_FOCUS_AUTO)) {
+		current.has_af_c = 1;
+		v4l2_ctrl_set(fd, V4L2_CID_FOCUS_AUTO, 1);
+	}
+	if (v4l2_has_control(fd, V4L2_CID_AUTO_FOCUS_START)) {
+		current.has_af_s = 1;
+	}
+
+	if (auto_exposure) {
+		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
+	} else {
+		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
+		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE, height/2);
+	}
+	if (auto_gain) {
+		v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 1);
+	} else {
+		v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 0);
+		v4l2_ctrl_set(fd, V4L2_CID_GAIN, 0);
+	}
+	close(current.fd);
+	current.fd = fd;
 }
 
 static int
@@ -316,12 +372,12 @@ init_device(int fd)
 	struct v4l2_format fmt = {
 		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
 	};
-	if (current_width > 0) {
+	if (current.width > 0) {
 		g_printerr("Setting camera to %dx%d fmt %d\n",
-			current_width, current_height, current_fmt);
-		fmt.fmt.pix.width = current_width;
-		fmt.fmt.pix.height = current_height;
-		fmt.fmt.pix.pixelformat = current_fmt;
+			current.width, current.height, current.fmt);
+		fmt.fmt.pix.width = current.width;
+		fmt.fmt.pix.height = current.height;
+		fmt.fmt.pix.pixelformat = current.fmt;
 		fmt.fmt.pix.field = V4L2_FIELD_ANY;
 
 		if (xioctl(fd, VIDIOC_S_FMT, &fmt) == -1) {
@@ -345,10 +401,10 @@ init_device(int fd)
 		g_printerr("Driver returned %dx%d fmt %d\n",
 			fmt.fmt.pix.width, fmt.fmt.pix.height,
 			fmt.fmt.pix.pixelformat);
-		current_width = fmt.fmt.pix.width;
-		current_height = fmt.fmt.pix.height;
+		current.width = fmt.fmt.pix.width;
+		current.height = fmt.fmt.pix.height;
 	}
-	current_fmt = fmt.fmt.pix.pixelformat;
+	current.fmt = fmt.fmt.pix.pixelformat;
 
 	/* Buggy driver paranoia. */
 	unsigned int min = fmt.fmt.pix.width * 2;
@@ -365,66 +421,60 @@ init_device(int fd)
 }
 
 static void
+register_custom_tiff_tags(TIFF *tif)
+{
+	static const TIFFFieldInfo custom_fields[] = {
+		{TIFFTAG_FORWARDMATRIX1, -1, -1, TIFF_SRATIONAL, FIELD_CUSTOM, 1, 1, "ForwardMatrix1"},
+	};
+	
+	// Add missing dng fields
+	TIFFMergeFieldInfo(tif, custom_fields, sizeof(custom_fields) / sizeof(custom_fields[0]));
+}
+
+static void
 process_image(const int *p, int size)
 {
-	clock_t t;
 	time_t rawtime;
+	char datetime[20] = {0};
 	struct tm tim;
 	uint8_t *pixels;
-	double time_taken;
 	char fname[255];
+	char fname_target[255];
+	char command[1024];
 	char timestamp[30];
+	char uniquecameramodel[255];
 	GdkPixbuf *pixbuf;
 	GdkPixbuf *pixbufrot;
 	GdkPixbuf *thumb;
 	GError *error = NULL;
 	double scale;
 	cairo_t *cr;
-	t = clock();
+	TIFF *tif;
 	int skip = 2;
+	long sub_offset = 0;
+	uint64 exif_offset = 0;
+	static const short cfapatterndim[] = {2, 2};
+	static const float neutral[] = {1.0, 1.0, 1.0};
 
-	dc1394bayer_method_t method = DC1394_BAYER_METHOD_DOWNSAMPLE;
-	dc1394color_filter_t filter = DC1394_COLOR_FILTER_BGGR;
-
-	if (capture) {
-		method = DC1394_BAYER_METHOD_SIMPLE;
-		// method = DC1394_BAYER_METHOD_VNG is slightly sharper but takes 10 seconds;
-		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, current_width, current_height);
-		pixels = gdk_pixbuf_get_pixels(pixbuf);
-		dc1394_bayer_decoding_8bit((const uint8_t *) p, pixels, current_width, current_height, filter, method);
-	} else {
-		if(current_width > 1280) {
+	// Only process preview frames when not capturing
+	if (capture == 0) {
+		if(current.width > 1280) {
 			skip = 3;
 		}
-		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, current_width / (skip*2), current_height / (skip*2));
+		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, current.width / (skip*2), current.height / (skip*2));
 		pixels = gdk_pixbuf_get_pixels(pixbuf);
-		quick_debayer_bggr8((const uint8_t *)p, pixels, current_width, current_height, skip);
-	}
+		quick_debayer_bggr8((const uint8_t *)p, pixels, current.width, current.height, skip);
 
-	if (current_rotate == 0) {
-		pixbufrot = pixbuf;
-	} else if (current_rotate == 90) {
-		pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_COUNTERCLOCKWISE);
-	} else if (current_rotate == 180) {
-		pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_UPSIDEDOWN);
-	} else if (current_rotate == 270) {
-		pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_CLOCKWISE);
-	}
-	if (capture) {
-		time(&rawtime);
-		tim = *(localtime(&rawtime));
-		strftime(timestamp, 30, "%Y%m%d%H%M%S", &tim);
-		sprintf(fname, "%s/Pictures/IMG%s.jpg", getenv("HOME"), timestamp);
-		printf("Saving image\n");
-		thumb = gdk_pixbuf_scale_simple(pixbufrot, 24, 24, GDK_INTERP_BILINEAR);
-		gtk_image_set_from_pixbuf(GTK_IMAGE(thumb_last), thumb);
-		gdk_pixbuf_save(pixbufrot, fname, "jpeg", &error, "quality", "95", NULL);
-		last_path = strdup(fname);
-		if (error != NULL) {
-			g_printerr("%s\n", error->message);
-			g_clear_error(&error);
+		if (current.rotate == 0) {
+			pixbufrot = pixbuf;
+		} else if (current.rotate == 90) {
+			pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_COUNTERCLOCKWISE);
+		} else if (current.rotate == 180) {
+			pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_UPSIDEDOWN);
+		} else if (current.rotate == 270) {
+			pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_CLOCKWISE);
 		}
-	} else {
+
 		scale = (double) preview_width / gdk_pixbuf_get_width(pixbufrot);
 		cr = cairo_create(surface);
 		cairo_set_source_rgb(cr, 0, 0, 0);
@@ -434,11 +484,148 @@ process_image(const int *p, int size)
 		cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_NONE);
 		cairo_paint(cr);
 		gtk_widget_queue_draw_area(preview, 0, 0, preview_width, preview_height);
+		cairo_destroy(cr);
+		g_object_unref(pixbufrot);
+		g_object_unref(pixbuf);
+	} else {
+		capture--;
+		time(&rawtime);
+		tim = *(localtime(&rawtime));
+		strftime(timestamp, 30, "%Y%m%d%H%M%S", &tim);
+		strftime(datetime, 20, "%Y:%m:%d %H:%M:%S", &tim);
+
+		sprintf(fname_target, "%s/Pictures/IMG%s", getenv("HOME"), timestamp);
+		sprintf(fname, "%s/%d.dng", burst_dir, burst_length - capture);
+
+		if(!(tif = TIFFOpen(fname, "w"))) {
+			printf("Could not open tiff\n");
+		}
+
+		// Define TIFF thumbnail
+		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, current.width >> 4);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, current.height >> 4);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+		TIFFSetField(tif, TIFFTAG_MAKE, exif_make);
+		TIFFSetField(tif, TIFFTAG_MODEL, exif_model);
+		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+		TIFFSetField(tif, TIFFTAG_DATETIME, datetime);
+		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
+		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_SOFTWARE, "Megapixels");
+		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &sub_offset);
+		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\0\0");
+		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\0\0\0");
+		sprintf(uniquecameramodel, "%s %s", exif_make, exif_model);
+		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, uniquecameramodel);
+		if(current.colormatrix[0]) {
+			TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, current.colormatrix);
+		} else {
+			TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, colormatrix_srgb);
+		}
+		if(current.forwardmatrix[0]) {
+			TIFFSetField(tif, TIFFTAG_FORWARDMATRIX1, 9, current.forwardmatrix);
+		}
+		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, neutral);
+		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+		// Write black thumbnail, only windows uses this
+		{
+			unsigned char *buf = (unsigned char *)calloc(1, (int)current.width >> 4);
+			for (int row = 0; row < current.height>>4; row++) {
+				TIFFWriteScanline(tif, buf, row, 0);
+			}
+			free(buf);
+		}
+		TIFFWriteDirectory(tif);
+
+
+		// Define main photo
+		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, current.width);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, current.height);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
+		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
+		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfapatterndim);
+		TIFFSetField(tif, TIFFTAG_CFAPATTERN, "\002\001\001\000"); // BGGR
+		if(current.whitelevel) {
+			TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &current.whitelevel);
+		}
+		if(current.blacklevel) {
+			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &current.blacklevel);
+		}
+		TIFFCheckpointDirectory(tif);
+		printf("Writing frame to %s\n", fname);
+		
+		unsigned char *pLine = (unsigned char*)malloc(current.width);
+		for(int row = 0; row < current.height; row++){
+			TIFFWriteScanline(tif, ((uint8_t *)p)+(row*current.width), row, 0);
+		}
+		free(pLine);
+		TIFFWriteDirectory(tif);
+
+		// Add an EXIF block to the tiff
+		TIFFCreateEXIFDirectory(tif);
+		// 1 = manual, 2 = full auto, 3 = aperture priority, 4 = shutter priority
+		TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 2);
+		TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, datetime);
+		TIFFSetField(tif, EXIFTAG_DATETIMEDIGITIZED, datetime);
+		if(current.fnumber) {
+			TIFFSetField(tif, EXIFTAG_FNUMBER, current.fnumber);
+		}
+		if(current.focallength) {
+			TIFFSetField(tif, EXIFTAG_FOCALLENGTH, current.focallength);
+		}
+		if(current.focallength && current.cropfactor) {
+			TIFFSetField(tif, EXIFTAG_FOCALLENGTHIN35MMFILM, (short)(current.focallength * current.cropfactor));
+		}
+		TIFFWriteCustomDirectory(tif, &exif_offset);
+		TIFFFreeDirectory(tif);
+
+		// Update exif pointer
+		TIFFSetDirectory(tif, 0);
+		TIFFSetField(tif, TIFFTAG_EXIFIFD, exif_offset);
+		TIFFRewriteDirectory(tif);
+
+		TIFFClose(tif);
+
+
+		if (capture == 0) {
+			// Update the thumbnail if this is the last frame
+			pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, current.width / (skip*2), current.height / (skip*2));
+			pixels = gdk_pixbuf_get_pixels(pixbuf);
+			quick_debayer_bggr8((const uint8_t *)p, pixels, current.width, current.height, skip);
+
+			if (current.rotate == 0) {
+				pixbufrot = pixbuf;
+			} else if (current.rotate == 90) {
+				pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_COUNTERCLOCKWISE);
+			} else if (current.rotate == 180) {
+				pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_UPSIDEDOWN);
+			} else if (current.rotate == 270) {
+				pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_CLOCKWISE);
+			}
+			thumb = gdk_pixbuf_scale_simple(pixbufrot, 24, 24, GDK_INTERP_BILINEAR);
+			gtk_image_set_from_pixbuf(GTK_IMAGE(thumb_last), thumb);
+			last_path = strdup(fname);
+			if (error != NULL) {
+				g_printerr("%s\n", error->message);
+				g_clear_error(&error);
+			}
+
+			g_object_unref(pixbufrot);
+			g_object_unref(pixbuf);
+
+			// Start post-processing the captured burst
+			g_printerr("Post process %s to %s.ext\n", burst_dir, fname_target);
+			sprintf(command, "%s %s %s &", processing_script, burst_dir, fname_target);
+			system(command);
+
+		}
 	}
-	capture = 0;
-	t = clock() - t;
-	time_taken = ((double) t) / CLOCKS_PER_SEC;
-	//printf("%f fps\n", 1.0 / time_taken);
 }
 
 static gboolean
@@ -552,101 +739,82 @@ static int
 config_ini_handler(void *user, const char *section, const char *name,
 	const char *value)
 {
-	if (strcmp(section, "rear") == 0) {
-		if (strcmp(name, "width") == 0) {
-			rear_width = strtoint(value, NULL, 10);
-		} else if (strcmp(name, "height") == 0) {
-			rear_height = strtoint(value, NULL, 10);
-		} else if (strcmp(name, "rate") == 0) {
-			rear_rate = strtoint(value, NULL, 10);
-		} else if (strcmp(name, "rotate") == 0) {
-			rear_rotate = strtoint(value, NULL, 10);
-		} else if (strcmp(name, "fmt") == 0) {
-			if (strcmp(value, "RGB") == 0) {
-				rear_fmt = V4L2_PIX_FMT_RGB24;
-			} else if (strcmp(value, "UYVY") == 0) {
-				rear_fmt = V4L2_PIX_FMT_UYVY;
-			} else if (strcmp(value, "YUYV") == 0) {
-				rear_fmt = V4L2_PIX_FMT_YUYV;
-			} else if (strcmp(value, "JPEG") == 0) {
-				rear_fmt = V4L2_PIX_FMT_JPEG;
-			} else if (strcmp(value, "NV12") == 0) {
-				rear_fmt = V4L2_PIX_FMT_NV12;
-			} else if (strcmp(value, "YUV420") == 0
-				|| strcmp(value, "I420") == 0
-				|| strcmp(value, "YU12") == 0) {
-				rear_fmt = V4L2_PIX_FMT_YUV420;
-			} else if (strcmp(value, "YVU420") == 0
-				|| strcmp(value, "YV12") == 0) {
-				rear_fmt = V4L2_PIX_FMT_YVU420;
-			} else if (strcmp(value, "RGGB8") == 0) {
-				rear_fmt = V4L2_PIX_FMT_SRGGB8;
-			} else if (strcmp(value, "BGGR8") == 0) {
-				rear_fmt = V4L2_PIX_FMT_SBGGR8;
-				rear_mbus = MEDIA_BUS_FMT_SBGGR8_1X8;
-			} else if (strcmp(value, "GRBG8") == 0) {
-				rear_fmt = V4L2_PIX_FMT_SGRBG8;
-			} else if (strcmp(value, "GBRG8") == 0) {
-				rear_fmt = V4L2_PIX_FMT_SGBRG8;
-			} else {
-				g_printerr("Unsupported pixelformat %s\n", value);
-				exit(1);
-			}
-		} else if (strcmp(name, "driver") == 0) {
-			rear_dev_name = strdup(value);
+	struct camerainfo *cc;
+	if (strcmp(section, "rear") == 0 || strcmp(section, "front") == 0) {
+		if (strcmp(section, "rear") == 0) {
+			cc = &rear_cam;
 		} else {
-			g_printerr("Unknown key '%s' in [rear]\n", name);
-			exit(1);
+			cc = &front_cam;
 		}
-	} else if (strcmp(section, "front") == 0) {
 		if (strcmp(name, "width") == 0) {
-			front_width = strtoint(value, NULL, 10);
+			cc->width = strtoint(value, NULL, 10);
 		} else if (strcmp(name, "height") == 0) {
-			front_height = strtoint(value, NULL, 10);
+			cc->height = strtoint(value, NULL, 10);
 		} else if (strcmp(name, "rate") == 0) {
-			front_rate = strtoint(value, NULL, 10);
+			cc->rate = strtoint(value, NULL, 10);
 		} else if (strcmp(name, "rotate") == 0) {
-			front_rotate = strtoint(value, NULL, 10);
+			cc->rotate = strtoint(value, NULL, 10);
 		} else if (strcmp(name, "fmt") == 0) {
-			if (strcmp(value, "RGB") == 0) {
-				front_fmt = V4L2_PIX_FMT_RGB24;
-			} else if (strcmp(value, "UYVY") == 0) {
-				front_fmt = V4L2_PIX_FMT_UYVY;
-			} else if (strcmp(value, "YUYV") == 0) {
-				front_fmt = V4L2_PIX_FMT_YUYV;
-			} else if (strcmp(value, "JPEG") == 0) {
-				front_fmt = V4L2_PIX_FMT_JPEG;
-			} else if (strcmp(value, "NV12") == 0) {
-				front_fmt = V4L2_PIX_FMT_NV12;
-			} else if (strcmp(value, "YUV420") == 0
-				|| strcmp(value, "I420") == 0
-				|| strcmp(value, "YU12") == 0) {
-				front_fmt = V4L2_PIX_FMT_YUV420;
-			} else if (strcmp(value, "YVU420") == 0
-				|| strcmp(value, "YV12") == 0) {
-				front_fmt = V4L2_PIX_FMT_YVU420;
-			} else if (strcmp(value, "RGGB8") == 0) {
-				front_fmt = V4L2_PIX_FMT_SRGGB8;
+			if (strcmp(value, "RGGB8") == 0) {
+				cc->fmt = V4L2_PIX_FMT_SRGGB8;
 			} else if (strcmp(value, "BGGR8") == 0) {
-				front_fmt = V4L2_PIX_FMT_SBGGR8;
-				front_mbus = MEDIA_BUS_FMT_SBGGR8_1X8;
+				cc->fmt = V4L2_PIX_FMT_SBGGR8;
+				cc->mbus = MEDIA_BUS_FMT_SBGGR8_1X8;
 			} else if (strcmp(value, "GRBG8") == 0) {
-				front_fmt = V4L2_PIX_FMT_SGRBG8;
+				cc->fmt = V4L2_PIX_FMT_SGRBG8;
 			} else if (strcmp(value, "GBRG8") == 0) {
-				front_fmt = V4L2_PIX_FMT_SGBRG8;
+				cc->fmt = V4L2_PIX_FMT_SGBRG8;
 			} else {
 				g_printerr("Unsupported pixelformat %s\n", value);
 				exit(1);
 			}
 		} else if (strcmp(name, "driver") == 0) {
-			front_dev_name = strdup(value);
+			strcpy(cc->dev_name, value);
+		} else if (strcmp(name, "colormatrix") == 0) {
+			sscanf(value, "%f,%f,%f,%f,%f,%f,%f,%f,%f",
+					cc->colormatrix+0,
+					cc->colormatrix+1,
+					cc->colormatrix+2,
+					cc->colormatrix+3,
+					cc->colormatrix+4,
+					cc->colormatrix+5,
+					cc->colormatrix+6,
+					cc->colormatrix+7,
+					cc->colormatrix+8
+					);
+		} else if (strcmp(name, "forwardmatrix") == 0) {
+			sscanf(value, "%f,%f,%f,%f,%f,%f,%f,%f,%f",
+					cc->forwardmatrix+0,
+					cc->forwardmatrix+1,
+					cc->forwardmatrix+2,
+					cc->forwardmatrix+3,
+					cc->forwardmatrix+4,
+					cc->forwardmatrix+5,
+					cc->forwardmatrix+6,
+					cc->forwardmatrix+7,
+					cc->forwardmatrix+8
+					);
+		} else if (strcmp(name, "whitelevel") == 0) {
+			cc->whitelevel = strtoint(value, NULL, 10);
+		} else if (strcmp(name, "blacklevel") == 0) {
+			cc->blacklevel = strtoint(value, NULL, 10);
+		} else if (strcmp(name, "focallength") == 0) {
+			cc->focallength = strtof(value, NULL);
+		} else if (strcmp(name, "cropfactor") == 0) {
+			cc->cropfactor = strtof(value, NULL);
+		} else if (strcmp(name, "fnumber") == 0) {
+			cc->fnumber = strtod(value, NULL);
 		} else {
-			g_printerr("Unknown key '%s' in [front]\n", name);
+			g_printerr("Unknown key '%s' in [%s]\n", name, section);
 			exit(1);
 		}
 	} else if (strcmp(section, "device") == 0) {
 		if (strcmp(name, "csi") == 0) {
 			media_drv_name = strdup(value);
+		} else if (strcmp(name, "make") == 0) {
+			exif_make = strdup(value);
+		} else if (strcmp(name, "model") == 0) {
+			exif_model = strdup(value);
 		} else {
 			g_printerr("Unknown key '%s' in [device]\n", name);
 			exit(1);
@@ -685,7 +853,7 @@ setup_rear()
 
 	// Disable the interface<->front link
 	link.flags = 0;
-	link.source.entity = front_entity_id;
+	link.source.entity = front_cam.entity_id;
 	link.source.index = 0;
 	link.sink.entity = interface_entity_id;
 	link.sink.index = 0;
@@ -697,7 +865,7 @@ setup_rear()
 
 	// Enable the interface<->rear link
 	link.flags = MEDIA_LNK_FL_ENABLED;
-	link.source.entity = rear_entity_id;
+	link.source.entity = rear_cam.entity_id;
 	link.source.index = 0;
 	link.sink.entity = interface_entity_id;
 	link.sink.index = 0;
@@ -707,12 +875,10 @@ setup_rear()
 		return -1;
 	}
 
-	current_width = rear_width;
-	current_height = rear_height;
-	current_fmt = rear_fmt;
-	current_rotate = rear_rotate;
+	current = rear_cam;
+
 	// Find camera node
-	init_sensor(rear_dev, rear_width, rear_height, rear_mbus, rear_rate);
+	init_sensor(current.dev, current.width, current.height, current.mbus, current.rate);
 	return 0;
 }
 
@@ -723,7 +889,7 @@ setup_front()
 
 	// Disable the interface<->rear link
 	link.flags = 0;
-	link.source.entity = rear_entity_id;
+	link.source.entity = rear_cam.entity_id;
 	link.source.index = 0;
 	link.sink.entity = interface_entity_id;
 	link.sink.index = 0;
@@ -735,7 +901,7 @@ setup_front()
 
 	// Enable the interface<->rear link
 	link.flags = MEDIA_LNK_FL_ENABLED;
-	link.source.entity = front_entity_id;
+	link.source.entity = front_cam.entity_id;
 	link.source.index = 0;
 	link.sink.entity = interface_entity_id;
 	link.sink.index = 0;
@@ -744,12 +910,9 @@ setup_front()
 		g_printerr("Could not enable front camera link\n");
 		return -1;
 	}
-	current_width = front_width;
-	current_height = front_height;
-	current_fmt = front_fmt;
-	current_rotate = front_rotate;
+	current = front_cam;
 	// Find camera node
-	init_sensor(front_dev, front_width, front_height, front_mbus, front_rate);
+	init_sensor(current.dev, current.width, current.height, current.mbus, current.rate);
 	return 0;
 }
 
@@ -767,16 +930,16 @@ find_cameras()
 			break;
 		}
 		printf("At node %s, (0x%x)\n", entity.name, entity.type);
-		if (strncmp(entity.name, front_dev_name, strlen(front_dev_name)) == 0) {
-			front_entity_id = entity.id;
-			find_dev_node(entity.dev.major, entity.dev.minor, front_dev);
-			printf("Found front cam, is %s at %s\n", entity.name, front_dev);
+		if (strncmp(entity.name, front_cam.dev_name, strlen(front_cam.dev_name)) == 0) {
+			front_cam.entity_id = entity.id;
+			find_dev_node(entity.dev.major, entity.dev.minor, front_cam.dev);
+			printf("Found front cam, is %s at %s\n", entity.name, front_cam.dev);
 			found++;
 		}
-		if (strncmp(entity.name, rear_dev_name, strlen(rear_dev_name)) == 0) {
-			rear_entity_id = entity.id;
-			find_dev_node(entity.dev.major, entity.dev.minor, rear_dev);
-			printf("Found rear cam, is %s at %s\n", entity.name, rear_dev);
+		if (strncmp(entity.name, rear_cam.dev_name, strlen(rear_cam.dev_name)) == 0) {
+			rear_cam.entity_id = entity.id;
+			find_dev_node(entity.dev.major, entity.dev.minor, rear_cam.dev);
+			printf("Found rear cam, is %s at %s\n", entity.name, rear_cam.dev);
 			found++;
 		}
 		if (entity.type == MEDIA_ENT_F_IO_V4L) {
@@ -847,7 +1010,18 @@ on_open_directory_clicked(GtkWidget *widget, gpointer user_data)
 void
 on_shutter_clicked(GtkWidget *widget, gpointer user_data)
 {
-	capture = 1;
+	char template[] = "/tmp/megapixels.XXXXXX";
+	char *tempdir;
+	tempdir = mkdtemp(template);
+
+	if (tempdir == NULL) {
+		g_printerr("Could not make capture directory %s\n", template);
+		exit (EXIT_FAILURE);
+	}
+
+	strcpy(burst_dir, tempdir);
+
+	capture = burst_length;
 }
 
 void
@@ -860,7 +1034,7 @@ void
 on_camera_switch_clicked(GtkWidget *widget, gpointer user_data)
 {
 	stop_capturing(video_fd);
-	close(current_fd);
+	close(current.fd);
 	if (current_is_rear == 1) {
 		setup_front();
 		current_is_rear = 0;
@@ -913,6 +1087,13 @@ find_config(char *conffile)
 		fgets(buf, 512, fp);
 		fclose(fp);
 
+		// Check config/%dt.ini in the current working directory
+		sprintf(conffile, "config/%s.ini", buf);
+		if(access(conffile, F_OK) != -1) {
+			printf("Found config file at %s\n", conffile);
+			return 0;
+		}
+
 		// Check for a config file in XDG_CONFIG_HOME
 		sprintf(conffile, "%s/megapixels/config/%s.ini", xdg_config_home, buf);
 		if(access(conffile, F_OK) != -1) {
@@ -932,12 +1113,6 @@ find_config(char *conffile)
 			printf("Found config file at %s\n", conffile);
 			return 0;
 		}
-		// Check config/%dt.ini in the current working directory
-		sprintf(conffile, "config/%s.ini", buf);
-		if(access(conffile, F_OK) != -1) {
-			printf("Found config file at %s\n", conffile);
-			return 0;
-		}
 		printf("%s not found\n", conffile);
 	} else {
 		printf("Could not read device name from device tree\n");
@@ -953,11 +1128,70 @@ find_config(char *conffile)
 }
 
 int
+find_processor(char *script)
+{
+	char *xdg_config_home;
+	char filename[] = "postprocess.sh";
+	wordexp_t exp_result;
+
+	// Resolve XDG stuff
+	if ((xdg_config_home = getenv("XDG_CONFIG_HOME")) == NULL) {
+		xdg_config_home = "~/.config";
+	}
+	wordexp(xdg_config_home, &exp_result, 0);
+	xdg_config_home = strdup(exp_result.we_wordv[0]);
+	wordfree(&exp_result);
+
+	// Check postprocess.h in the current working directory
+	sprintf(script, "%s", filename);
+	if(access(script, F_OK) != -1) {
+		sprintf(script, "./%s", filename);
+		printf("Found postprocessor script at %s\n", script);
+		return 0;
+	}
+
+	// Check for a script in XDG_CONFIG_HOME
+	sprintf(script, "%s/megapixels/%s", xdg_config_home, filename);
+	if(access(script, F_OK) != -1) {
+		printf("Found postprocessor script at %s\n", script);
+		return 0;
+	}
+
+	// Check user overridden /etc/megapixels/postprocessor.sh
+	sprintf(script, "%s/megapixels/%s", SYSCONFDIR, filename);
+	if(access(script, F_OK) != -1) {
+		printf("Found postprocessor script at %s\n", script);
+		return 0;
+	}
+
+	// Check packaged /usr/share/megapixels/postprocessor.sh
+	sprintf(script, "%s/megapixels/%s", DATADIR, filename);
+	if(access(script, F_OK) != -1) {
+		printf("Found postprocessor script at %s\n", script);
+		return 0;
+	}
+
+	return -1;
+}
+
+int
 main(int argc, char *argv[])
 {
+	int ret;
 	char conffile[512];
 
-	find_config(conffile);
+	ret = find_config(conffile);
+	if (ret) {
+		g_printerr("Could not find any config file\n");
+		return ret;
+	}
+	ret = find_processor(processing_script);
+	if (ret) {
+		g_printerr("Could not find any post-process script\n");
+		return ret;
+	}
+
+	TIFFSetTagExtender(register_custom_tiff_tags);
 
 	gtk_init(&argc, &argv);
 	g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme", TRUE, NULL);
