@@ -15,14 +15,14 @@
 #include <wordexp.h>
 #include <gtk/gtk.h>
 #include <tiffio.h>
+#include <locale.h>
 #include "config.h"
 #include "ini.h"
 #include "quickdebayer.h"
 
-enum io_method {
-	IO_METHOD_READ,
-	IO_METHOD_MMAP,
-	IO_METHOD_USERPTR,
+enum user_control {
+	USER_CONTROL_ISO,
+	USER_CONTROL_SHUTTER
 };
 
 #define TIFFTAG_FORWARDMATRIX1 50964
@@ -52,6 +52,11 @@ struct camerainfo {
 	float focallength;
 	float cropfactor;
 	double fnumber;
+	int iso_min;
+	int iso_max;
+
+	int gain_ctrl;
+	int gain_max;
 
 	int has_af_c;
 	int has_af_s;
@@ -84,21 +89,28 @@ static int ready = 0;
 static int capture = 0;
 static int current_is_rear = 1;
 static cairo_surface_t *surface = NULL;
+static cairo_surface_t *status_surface = NULL;
 static int preview_width = -1;
 static int preview_height = -1;
 static char *last_path = NULL;
 static int auto_exposure = 1;
+static int exposure = 1;
 static int auto_gain = 1;
+static int gain = 1;
 static int burst_length = 5;
 static char burst_dir[23];
 static char processing_script[512];
-
+static enum user_control current_control;
 // Widgets
 GtkWidget *preview;
 GtkWidget *error_box;
 GtkWidget *error_message;
 GtkWidget *main_stack;
 GtkWidget *thumb_last;
+GtkWidget *control_box;
+GtkWidget *control_name;
+GtkWidget *control_slider;
+GtkWidget *control_auto;
 
 static int
 xioctl(int fd, int request, void *arg)
@@ -122,6 +134,23 @@ show_error(const char *s)
 {
 	gtk_label_set_text(GTK_LABEL(error_message), s);
 	gtk_widget_show(error_box);
+}
+
+int
+remap(int value, int input_min, int input_max, int output_min, int output_max)
+{
+	const long long factor = 1000000000;
+	long long output_spread = output_max - output_min;
+	long long input_spread = input_max - input_min;
+
+	long long zero_value = value - input_min;
+	zero_value *= factor;
+	long long percentage = zero_value / input_spread;
+
+	long long zero_output = percentage * output_spread / factor;
+
+	long long result = output_min + zero_output;
+	return (int)result;
 }
 
 static void
@@ -237,6 +266,39 @@ v4l2_ctrl_set(int fd, uint32_t id, int val)
 }
 
 static int
+v4l2_ctrl_get(int fd, uint32_t id)
+{
+	struct v4l2_control ctrl = {0};
+	ctrl.id = id;
+
+	if (xioctl(fd, VIDIOC_G_CTRL, &ctrl) == -1) {
+		g_printerr("Failed to get control %d\n", id);
+		return -1;
+	}
+	return ctrl.value;
+}
+
+static int
+v4l2_ctrl_get_max(int fd, uint32_t id)
+{
+	struct v4l2_queryctrl queryctrl;
+	int ret;
+
+	memset(&queryctrl, 0, sizeof(queryctrl));
+
+	queryctrl.id = id;
+	ret = xioctl(fd, VIDIOC_QUERYCTRL, &queryctrl);
+	if (ret)
+		return 0;
+
+	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) {
+		return 0;
+	}
+
+	return queryctrl.maximum;
+}
+
+static int
 v4l2_has_control(int fd, int control_id)
 {
 	struct v4l2_queryctrl queryctrl;
@@ -254,6 +316,84 @@ v4l2_has_control(int fd, int control_id)
 	}
 
 	return 1;
+}
+
+static void
+draw_controls()
+{
+	cairo_t *cr;
+	char iso[6];
+	int temp;
+	char shutterangle[6];
+
+	if (auto_exposure) {
+		sprintf(shutterangle, "auto");
+	} else {
+		temp = (int)((float)exposure / (float)current.height * 360);
+		sprintf(shutterangle, "%d\u00b0", temp);
+	}
+
+	if (auto_gain) {
+		sprintf(iso, "auto");
+	} else {
+		temp = remap(gain - 1, 0, current.gain_max, current.iso_min, current.iso_max);
+		sprintf(iso, "%d", temp);
+	}
+
+	if (status_surface)
+		cairo_surface_destroy(status_surface);
+
+	// Make a service to show status of controls, 32px high
+	status_surface = gdk_window_create_similar_surface(gtk_widget_get_window(preview),
+		CAIRO_CONTENT_COLOR_ALPHA,
+		preview_width, 32);
+
+	cr = cairo_create(status_surface);
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.0);
+	cairo_paint(cr);
+
+	// Draw the outlines for the headings
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, 9);
+	cairo_set_source_rgba(cr, 0, 0, 0, 1);
+
+	cairo_move_to(cr, 16, 16);
+	cairo_text_path(cr, "ISO");
+	cairo_stroke(cr);
+
+	cairo_move_to(cr, 60, 16);
+	cairo_text_path(cr, "Shutter");
+	cairo_stroke(cr);
+
+	// Draw the fill for the headings
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, 16, 16);
+	cairo_show_text(cr, "ISO");
+	cairo_move_to(cr, 60, 16);
+	cairo_show_text(cr, "Shutter");
+
+	// Draw the outlines for the values
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 11);
+	cairo_set_source_rgba(cr, 0, 0, 0, 1);
+
+	cairo_move_to(cr, 16, 26);
+	cairo_text_path(cr, iso);
+	cairo_stroke(cr);
+
+	cairo_move_to(cr, 60, 26);
+	cairo_text_path(cr, shutterangle);
+	cairo_stroke(cr);
+
+	// Draw the fill for the values
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, 16, 26);
+	cairo_show_text(cr, iso);
+	cairo_move_to(cr, 60, 26);
+	cairo_show_text(cr, shutterangle);
+
+	cairo_destroy(cr);
+	
 }
 
 static void
@@ -302,18 +442,20 @@ init_sensor(char *fn, int width, int height, int mbus, int rate)
 		current.has_af_s = 1;
 	}
 
-	if (auto_exposure) {
-		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
-	} else {
-		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
-		v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE, height/2);
+	if (v4l2_has_control(fd, V4L2_CID_GAIN)) {
+		current.gain_ctrl = V4L2_CID_GAIN;
+		current.gain_max = v4l2_ctrl_get_max(fd, V4L2_CID_GAIN);
 	}
-	if (auto_gain) {
-		v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 1);
-	} else {
-		v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 0);
-		v4l2_ctrl_set(fd, V4L2_CID_GAIN, 0);
+
+	if (v4l2_has_control(fd, V4L2_CID_ANALOGUE_GAIN)) {
+		current.gain_ctrl = V4L2_CID_ANALOGUE_GAIN;
+		current.gain_max = v4l2_ctrl_get_max(fd, V4L2_CID_ANALOGUE_GAIN);
 	}
+
+	auto_exposure = 1;
+	auto_gain = 1;
+	draw_controls();
+
 	close(current.fd);
 	current.fd = fd;
 }
@@ -455,6 +597,7 @@ process_image(const int *p, int size)
 	uint64 exif_offset = 0;
 	static const short cfapatterndim[] = {2, 2};
 	static const float neutral[] = {1.0, 1.0, 1.0};
+	static uint16_t isospeed[] = {0};
 
 	// Only process preview frames when not capturing
 	if (capture == 0) {
@@ -475,6 +618,7 @@ process_image(const int *p, int size)
 			pixbufrot = gdk_pixbuf_rotate_simple(pixbuf, GDK_PIXBUF_ROTATE_CLOCKWISE);
 		}
 
+		// Draw preview image
 		scale = (double) preview_width / gdk_pixbuf_get_width(pixbufrot);
 		cr = cairo_create(surface);
 		cairo_set_source_rgb(cr, 0, 0, 0);
@@ -483,6 +627,13 @@ process_image(const int *p, int size)
 		gdk_cairo_set_source_pixbuf(cr, pixbufrot, 0, 0);
 		cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_NONE);
 		cairo_paint(cr);
+
+		// Draw controls over preview
+		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+		cairo_set_source_surface(cr, status_surface, 0, 0);
+		cairo_paint(cr);
+
+		// Queue gtk3 repaint of the preview area
 		gtk_widget_queue_draw_area(preview, 0, 0, preview_width, preview_height);
 		cairo_destroy(cr);
 		g_object_unref(pixbufrot);
@@ -496,6 +647,10 @@ process_image(const int *p, int size)
 
 		sprintf(fname_target, "%s/Pictures/IMG%s", getenv("HOME"), timestamp);
 		sprintf(fname, "%s/%d.dng", burst_dir, burst_length - capture);
+
+		// Get latest exposure and gain now the auto gain/exposure is disabled while capturing
+		gain = v4l2_ctrl_get(current.fd, current.gain_ctrl);
+		exposure = v4l2_ctrl_get(current.fd, V4L2_CID_EXPOSURE);
 
 		if(!(tif = TIFFOpen(fname, "w"))) {
 			printf("Could not open tiff\n");
@@ -540,7 +695,6 @@ process_image(const int *p, int size)
 		}
 		TIFFWriteDirectory(tif);
 
-
 		// Define main photo
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
 		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, current.width);
@@ -570,7 +724,17 @@ process_image(const int *p, int size)
 		// Add an EXIF block to the tiff
 		TIFFCreateEXIFDirectory(tif);
 		// 1 = manual, 2 = full auto, 3 = aperture priority, 4 = shutter priority
-		TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 2);
+		if (auto_exposure) {
+			TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 2);
+		} else {
+			TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 1);
+		}
+
+		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, (1.0/current.rate) / ((float)current.height / (float)exposure));
+		isospeed[0] = (uint16_t)remap(gain - 1, 0, current.gain_max, current.iso_min, current.iso_max);
+		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, isospeed);
+		TIFFSetField(tif, EXIFTAG_FLASH, 0);
+
 		TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, datetime);
 		TIFFSetField(tif, EXIFTAG_DATETIMEDIGITIZED, datetime);
 		if(current.fnumber) {
@@ -624,6 +788,14 @@ process_image(const int *p, int size)
 			sprintf(command, "%s %s %s &", processing_script, burst_dir, fname_target);
 			system(command);
 
+			// Restore the auto exposure and gain if needed
+			if (auto_exposure) {
+				v4l2_ctrl_set(current.fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
+			}
+			if (auto_gain) {
+				v4l2_ctrl_set(current.fd, V4L2_CID_AUTOGAIN, 1);
+			}
+
 		}
 	}
 }
@@ -635,6 +807,7 @@ preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	cairo_paint(cr);
 	return FALSE;
 }
+
 
 static gboolean
 preview_configure(GtkWidget *widget, GdkEventConfigure *event)
@@ -656,6 +829,9 @@ preview_configure(GtkWidget *widget, GdkEventConfigure *event)
 	cairo_set_source_rgb(cr, 0, 0, 0);
 	cairo_paint(cr);
 	cairo_destroy(cr);
+
+	draw_controls();
+
 	return TRUE;
 }
 
@@ -804,6 +980,10 @@ config_ini_handler(void *user, const char *section, const char *name,
 			cc->cropfactor = strtof(value, NULL);
 		} else if (strcmp(name, "fnumber") == 0) {
 			cc->fnumber = strtod(value, NULL);
+		} else if (strcmp(name, "iso-min") == 0) {
+			cc->iso_min = strtod(value, NULL);
+		} else if (strcmp(name, "iso-max") == 0) {
+			cc->iso_max = strtod(value, NULL);
 		} else {
 			g_printerr("Unknown key '%s' in [%s]\n", name, section);
 			exit(1);
@@ -1020,8 +1200,56 @@ on_shutter_clicked(GtkWidget *widget, gpointer user_data)
 	}
 
 	strcpy(burst_dir, tempdir);
+	
+	// Disable the autogain/exposure while taking the burst
+	v4l2_ctrl_set(current.fd, V4L2_CID_AUTOGAIN, 0);
+	v4l2_ctrl_set(current.fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
 
 	capture = burst_length;
+}
+
+void
+on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+{
+	if (event->type != GDK_BUTTON_PRESS)
+		return;
+
+	// Handle taps on the controls
+	if (event->y < 32) {
+		if (gtk_widget_is_visible(control_box)) {
+			gtk_widget_hide(control_box);
+			return;
+		} else {
+			gtk_widget_show(control_box);
+		}
+
+		if (event->x < 60 ) {
+			// ISO
+			current_control = USER_CONTROL_ISO;
+			gtk_label_set_text(GTK_LABEL(control_name), "ISO");
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto), auto_gain);
+			gtk_adjustment_set_lower(GTK_ADJUSTMENT(control_slider), 0.0);
+			gtk_adjustment_set_upper(GTK_ADJUSTMENT(control_slider), (float)current.gain_max);
+			gtk_adjustment_set_value(GTK_ADJUSTMENT(control_slider), (double)gain);
+
+		} else if (event->x > 60 && event->x < 120) {
+			// Shutter angle
+			current_control = USER_CONTROL_SHUTTER;
+			gtk_label_set_text(GTK_LABEL(control_name), "Shutter");
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto), auto_exposure);
+			gtk_adjustment_set_lower(GTK_ADJUSTMENT(control_slider), 1.0);
+			gtk_adjustment_set_upper(GTK_ADJUSTMENT(control_slider), 360.0);
+			gtk_adjustment_set_value(GTK_ADJUSTMENT(control_slider), (double)exposure);
+		}
+
+		return;
+	}
+
+	// Tapped preview image itself, try focussing
+	if (current.has_af_s) {
+		v4l2_ctrl_set(current.fd, V4L2_CID_AUTO_FOCUS_STOP, 1);
+		v4l2_ctrl_set(current.fd, V4L2_CID_AUTO_FOCUS_START, 1);
+	}
 }
 
 void
@@ -1062,6 +1290,54 @@ void
 on_back_clicked(GtkWidget *widget, gpointer user_data)
 {
 	gtk_stack_set_visible_child_name(GTK_STACK(main_stack), "main");
+}
+
+void
+on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
+{
+	int fd = current.fd;
+	switch (current_control) {
+		case USER_CONTROL_ISO:
+			auto_gain = gtk_toggle_button_get_active(widget);
+			if (auto_gain) {
+				v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 1);
+			} else {
+				v4l2_ctrl_set(fd, V4L2_CID_AUTOGAIN, 0);
+				gain = v4l2_ctrl_get(fd, V4L2_CID_GAIN);
+				gtk_adjustment_set_value(GTK_ADJUSTMENT(control_slider), (double)gain);
+			}
+			break;
+		case USER_CONTROL_SHUTTER:
+			auto_exposure = gtk_toggle_button_get_active(widget);
+			if (auto_exposure) {
+				v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
+			} else {
+				v4l2_ctrl_set(fd, V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
+				exposure = v4l2_ctrl_get(fd, V4L2_CID_EXPOSURE);
+				gtk_adjustment_set_value(GTK_ADJUSTMENT(control_slider), (double)exposure);
+			}
+			break;
+	}
+	draw_controls();
+}
+
+void
+on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
+{
+	double value = gtk_adjustment_get_value(widget);
+
+	switch (current_control) {
+		case USER_CONTROL_ISO:
+			gain = (int)value;
+			v4l2_ctrl_set(current.fd, current.gain_ctrl, gain);
+			break;
+		case USER_CONTROL_SHUTTER:
+			// So far all sensors use exposure time in number of sensor rows
+			exposure = (int)(value / 360.0 * current.height);
+			v4l2_ctrl_set(current.fd, V4L2_CID_EXPOSURE, exposure);
+			break;
+	}
+	draw_controls();
 }
 
 int
@@ -1191,6 +1467,8 @@ main(int argc, char *argv[])
 		return ret;
 	}
 
+	setenv("LC_NUMERIC", "C", 1);
+
 	TIFFSetTagExtender(register_custom_tiff_tags);
 
 	gtk_init(&argc, &argv);
@@ -1211,6 +1489,10 @@ main(int argc, char *argv[])
 	error_message = GTK_WIDGET(gtk_builder_get_object(builder, "error_message"));
 	main_stack = GTK_WIDGET(gtk_builder_get_object(builder, "main_stack"));
 	thumb_last = GTK_WIDGET(gtk_builder_get_object(builder, "thumb_last"));
+	control_box = GTK_WIDGET(gtk_builder_get_object(builder, "control_box"));
+	control_name = GTK_WIDGET(gtk_builder_get_object(builder, "control_name"));
+	control_slider = GTK_WIDGET(gtk_builder_get_object(builder, "control_adj"));
+	control_auto = GTK_WIDGET(gtk_builder_get_object(builder, "control_auto"));
 	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 	g_signal_connect(shutter, "clicked", G_CALLBACK(on_shutter_clicked), NULL);
 	g_signal_connect(error_close, "clicked", G_CALLBACK(on_error_close_clicked), NULL);
@@ -1221,6 +1503,11 @@ main(int argc, char *argv[])
 	g_signal_connect(open_directory, "clicked", G_CALLBACK(on_open_directory_clicked), NULL);
 	g_signal_connect(preview, "draw", G_CALLBACK(preview_draw), NULL);
 	g_signal_connect(preview, "configure-event", G_CALLBACK(preview_configure), NULL);
+	gtk_widget_set_events(preview, gtk_widget_get_events(preview) |
+			GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+	g_signal_connect(preview, "button-press-event", G_CALLBACK(on_preview_tap), NULL);
+	g_signal_connect(control_auto, "toggled", G_CALLBACK(on_control_auto_toggled), NULL);
+	g_signal_connect(control_slider, "value-changed", G_CALLBACK(on_control_slider_changed), NULL);
 
 	GtkCssProvider *provider = gtk_css_provider_new();
 	if (access("camera.css", F_OK) != -1) {
@@ -1233,6 +1520,10 @@ main(int argc, char *argv[])
 		GTK_STYLE_PROVIDER(provider),
 		GTK_STYLE_PROVIDER_PRIORITY_USER);
 	context = gtk_widget_get_style_context(error_box);
+	gtk_style_context_add_provider(context,
+		GTK_STYLE_PROVIDER(provider),
+		GTK_STYLE_PROVIDER_PRIORITY_USER);
+	context = gtk_widget_get_style_context(control_box);
 	gtk_style_context_add_provider(context,
 		GTK_STYLE_PROVIDER(provider),
 		GTK_STYLE_PROVIDER_PRIORITY_USER);
