@@ -19,30 +19,35 @@ fi
 BURST_DIR="$1"
 TARGET_NAME="$2"
 
-MAIN_PICTURE="$BURST_DIR"/1.dng
+MAIN_PICTURE="$BURST_DIR"/1
 
 # Copy the first frame of the burst as the raw photo
 cp "$BURST_DIR"/1.dng "$TARGET_NAME.dng"
 
 # Use stack_frames to merge the burst if available
-if command -v "stack_frames" &> /dev/null
+if command -v "stack_frames" > /dev/null
 then
 	stack_frames / "$BURST_DIR"/stacked.dng "$BURST_DIR"/*.dng
 	cp "$BURST_DIR"/stacked.dng "$TARGET_NAME.stacked.dng"
-	MAIN_PICTURE="$BURST_DIR"/stacked.dng
+	MAIN_PICTURE="$BURST_DIR"/stacked
 fi
 
 # Create a .jpg if raw processing tools are installed
 DCRAW=""
-if command -v "dcraw_emu" &> /dev/null
+TIFF_EXT="dng.tiff"
+if command -v "dcraw_emu" > /dev/null
 then
 	DCRAW=dcraw_emu
 	# -fbdd 1	Raw denoising with FBDD
 	set -- -fbdd 1
-fi
-if command -v "dcraw" &> /dev/null
+elif [ -x "/usr/lib/libraw/dcraw_emu" ]; then
+	DCRAW=/usr/lib/libraw/dcraw_emu
+	# -fbdd 1	Raw denoising with FBDD
+	set -- -fbdd 1
+elif command -v "dcraw" > /dev/null
 then
 	DCRAW=dcraw
+	TIFF_EXT="tiff"
 	set --
 fi
 
@@ -52,24 +57,24 @@ if [ -n "$DCRAW" ]; then
 	# -o 1		Output in sRGB colorspace
 	# -q 3		Debayer with AHD algorithm
 	# -T		Output TIFF
-	$DCRAW +M -H 4 -o 1 -q 3 -T "$@" "$MAIN_PICTURE"
+	$DCRAW +M -H 4 -o 1 -q 3 -T "$@" "$MAIN_PICTURE.dng"
 
 	# If imagemagick is available, convert the tiff to jpeg and apply slight sharpening
-	if command -v convert &> /dev/null
+	if command -v convert > /dev/null
 	then
-		convert "$MAIN_PICTURE".tiff -sharpen 0x1.0 "$TARGET_NAME.jpg"
+		convert "$MAIN_PICTURE.$TIFF_EXT" -sharpen 0x1.0 "$TARGET_NAME.jpg"
 
 		# If exiftool is installed copy the exif data over from the tiff to the jpeg
 		# since imagemagick is stupid
-		if command -v exiftool &> /dev/null
+		if command -v exiftool > /dev/null
 		then
-			exiftool -tagsFromfile "$MAIN_PICTURE".tiff \
+			exiftool -tagsFromfile "$MAIN_PICTURE.$TIFF_EXT" \
 				 -software="Megapixels" \
 				 -overwrite_original "$TARGET_NAME.jpg"
 		fi
 
 	else
-		cp "$MAIN_PICTURE".tiff "$TARGET_NAME.tiff"
+		cp "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.tiff"
 	fi
 fi
 
