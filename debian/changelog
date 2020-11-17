@@ -1,3 +1,17 @@
+megapixels (0.12.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release 0.12.0
+  * d/control: update dependencies
+    Megapixels now build-depends on libtiff, and uses a post-processing
+    script relying on dcraw.
+    The post-processing script can also take advantage of `imagemagick` and
+    `exiftool` if they're installed, but can work without those. So add a
+    `Recommends` on packages providing these utilities.
+  * d/upstream: metadata: add Bug-Database
+  * d/copyright: drop entries corresponding to removed files
+
+ -- Arnaud Ferraris <arnaud.ferraris@gmail.com>  Mon, 16 Nov 2020 12:34:47 +0100
+
 megapixels (0.9.0-1) unstable; urgency=medium
 
   [ Arnaud Ferraris ]
