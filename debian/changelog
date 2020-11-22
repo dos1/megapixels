@@ -1,5 +1,6 @@
-megapixels (0.12.0-1) UNRELEASED; urgency=medium
+megapixels (0.12.0-1) unstable; urgency=medium
 
+  [ Arnaud Ferraris ]
   * New upstream release 0.12.0
   * d/control: update dependencies
     Megapixels now build-depends on libtiff, and uses a post-processing
@@ -10,7 +11,7 @@ megapixels (0.12.0-1) UNRELEASED; urgency=medium
   * d/upstream: metadata: add Bug-Database
   * d/copyright: drop entries corresponding to removed files
 
- -- Arnaud Ferraris <arnaud.ferraris@gmail.com>  Mon, 16 Nov 2020 12:34:47 +0100
+ -- Federico Ceratto <federico@debian.org>  Sun, 22 Nov 2020 20:30:27 +0000
 
 megapixels (0.9.0-1) unstable; urgency=medium
 
