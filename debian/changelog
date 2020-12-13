@@ -1,10 +1,11 @@
-megapixels (0.13.1-1) UNRELEASED; urgency=medium
+megapixels (0.13.1-1) unstable; urgency=medium
 
+  [ Arnaud Ferraris ]
   * New upstream release for 0.13.1
   * d/copyright: add metainfo license information
   * d/control: bump Standards-Version
 
- -- Arnaud Ferraris <arnaud.ferraris@gmail.com>  Mon, 07 Dec 2020 10:57:14 +0100
+ -- Federico Ceratto <federico@debian.org>  Sun, 13 Dec 2020 14:36:25 +0000
 
 megapixels (0.12.0-1) unstable; urgency=medium
 
