@@ -1,9 +1,10 @@
 megapixels (0.13.1-2) unstable; urgency=medium
 
+  [ Arnaud Ferraris ]
   * d/patches: fix build with libtiff 4.2.0
   * d/control: depend on libtiff 4.2.0+
 
- -- Arnaud Ferraris <arnaud.ferraris@gmail.com>  Tue, 22 Dec 2020 18:44:50 +0100
+ -- Federico Ceratto <federico@debian.org>  Fri, 25 Dec 2020 14:39:51 +0000
 
 megapixels (0.13.1-1) unstable; urgency=medium
 
