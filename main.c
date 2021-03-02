@@ -17,6 +17,7 @@
 #include <wordexp.h>
 #include <gtk/gtk.h>
 #include <locale.h>
+#include <zbar.h>
 #include "camera_config.h"
 #include "quickpreview.h"
 #include "io_pipeline.h"
@@ -44,6 +45,8 @@ static cairo_surface_t *surface = NULL;
 static cairo_surface_t *status_surface = NULL;
 static char last_path[260] = "";
 
+static MPZBarScanResult *zbar_result = NULL;
+
 static int burst_length = 3;
 
 static enum user_control current_control;
@@ -53,7 +56,9 @@ GtkWidget *preview;
 GtkWidget *error_box;
 GtkWidget *error_message;
 GtkWidget *main_stack;
+GtkWidget *open_last_stack;
 GtkWidget *thumb_last;
+GtkWidget *process_spinner;
 GtkWidget *control_box;
 GtkWidget *control_name;
 GtkAdjustment *control_slider;
@@ -128,6 +133,28 @@ mp_main_update_state(const struct mp_main_state *state)
 				   (GSourceFunc)update_state, state_copy, free);
 }
 
+static bool set_zbar_result(MPZBarScanResult *result)
+{
+	if (zbar_result) {
+		for (uint8_t i = 0; i < zbar_result->size; ++i) {
+			free(zbar_result->codes[i].data);
+		}
+
+		free(zbar_result);
+	}
+
+	zbar_result = result;
+	gtk_widget_queue_draw(preview);
+
+	return false;
+}
+
+void mp_main_set_zbar_result(MPZBarScanResult *result)
+{
+	g_main_context_invoke_full(g_main_context_default(), G_PRIORITY_DEFAULT_IDLE,
+				   (GSourceFunc)set_zbar_result, result, NULL);
+}
+
 static bool
 set_preview(cairo_surface_t *image)
 {
@@ -146,52 +173,61 @@ mp_main_set_preview(cairo_surface_t *image)
 				   (GSourceFunc)set_preview, image, NULL);
 }
 
-static void
+static void transform_centered(cairo_t *cr, uint32_t dst_width, uint32_t dst_height,
+	                       int src_width, int src_height)
+{
+	cairo_translate(cr, dst_width / 2, dst_height / 2);
+
+	double scale = MIN(dst_width / (double)src_width, dst_height / (double)src_height);
+	cairo_scale(cr, scale, scale);
+
+	cairo_translate(cr, -src_width / 2, -src_height / 2);
+}
+
+void
 draw_surface_scaled_centered(cairo_t *cr, uint32_t dst_width, uint32_t dst_height,
 			     cairo_surface_t *surface)
 {
 	cairo_save(cr);
 
-	cairo_translate(cr, dst_width / 2, dst_height / 2);
-
 	int width = cairo_image_surface_get_width(surface);
 	int height = cairo_image_surface_get_height(surface);
-	double scale = MIN(dst_width / (double)width, dst_height / (double)height);
-	cairo_scale(cr, scale, scale);
-
-	cairo_translate(cr, -width / 2, -height / 2);
+	transform_centered(cr, dst_width, dst_height, width, height);
 
 	cairo_set_source_surface(cr, surface, 0, 0);
 	cairo_paint(cr);
 	cairo_restore(cr);
 }
 
+struct capture_completed_args {
+	cairo_surface_t *thumb;
+	char *fname;
+};
+
 static bool
-capture_completed(const char *fname)
+capture_completed(struct capture_completed_args *args)
 {
-	strncpy(last_path, fname, 260);
+	strncpy(last_path, args->fname, 259);
 
-	// Create a thumbnail from the current surface
-	cairo_surface_t *thumb =
-		cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 24, 24);
+	gtk_image_set_from_surface(GTK_IMAGE(thumb_last), args->thumb);
 
-	cairo_t *cr = cairo_create(thumb);
-	draw_surface_scaled_centered(cr, 24, 24, surface);
-	cairo_destroy(cr);
+	gtk_spinner_stop(GTK_SPINNER(process_spinner));
+	gtk_stack_set_visible_child(GTK_STACK(open_last_stack), thumb_last);
 
-	gtk_image_set_from_surface(GTK_IMAGE(thumb_last), thumb);
+	cairo_surface_destroy(args->thumb);
+	g_free(args->fname);
 
-	cairo_surface_destroy(thumb);
 	return false;
 }
 
 void
-mp_main_capture_completed(const char *fname)
+mp_main_capture_completed(cairo_surface_t *thumb, const char *fname)
 {
-	gchar *name = g_strdup(fname);
-
+	struct capture_completed_args *args = malloc(sizeof(struct capture_completed_args));
+	args->thumb = thumb;
+	args->fname = g_strdup(fname);
 	g_main_context_invoke_full(g_main_context_default(), G_PRIORITY_DEFAULT_IDLE,
-				   (GSourceFunc)capture_completed, name, g_free);
+				   (GSourceFunc)capture_completed, args, free);
 }
 
 static void
@@ -291,10 +327,39 @@ preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	// Clear preview area with black
 	cairo_paint(cr);
 
-	// Draw camera preview
 	if (surface) {
-		draw_surface_scaled_centered(cr, preview_width, preview_height,
-					     surface);
+		// Draw camera preview
+		cairo_save(cr);
+
+		int width = cairo_image_surface_get_width(surface);
+		int height = cairo_image_surface_get_height(surface);
+		transform_centered(cr, preview_width, preview_height, width, height);
+
+		cairo_set_source_surface(cr, surface, 0, 0);
+		cairo_paint(cr);
+
+		// Draw zbar image
+		if (zbar_result) {
+			for (uint8_t i = 0; i < zbar_result->size; ++i) {
+				MPZBarCode *code = &zbar_result->codes[i];
+
+				cairo_set_source_rgba(cr, 1, 1, 1, 0.5);
+				cairo_new_path(cr);
+				cairo_move_to(cr, code->bounds_x[0], code->bounds_y[0]);
+				for (uint8_t i = 0; i < 4; ++i) {
+					cairo_line_to(cr, code->bounds_x[i], code->bounds_y[i]);
+				}
+				cairo_close_path(cr);
+				cairo_stroke(cr);
+
+				cairo_save(cr);
+				cairo_translate(cr, code->bounds_x[0], code->bounds_y[0]);
+				cairo_show_text(cr, code->data);
+				cairo_restore(cr);
+			}
+		}
+
+		cairo_restore(cr);
 	}
 
 	// Draw control overlay
@@ -330,9 +395,9 @@ on_open_last_clicked(GtkWidget *widget, gpointer user_data)
 	if (strlen(last_path) == 0) {
 		return;
 	}
-	sprintf(uri, "file://%s.tiff", last_path);
+	sprintf(uri, "file://%s", last_path);
 	if (!g_app_info_launch_default_for_uri(uri, NULL, &error)) {
-		g_printerr("Could not launch image viewer: %s\n", error->message);
+		g_printerr("Could not launch image viewer for '%s': %s\n", uri, error->message);
 	}
 }
 
@@ -341,7 +406,7 @@ on_open_directory_clicked(GtkWidget *widget, gpointer user_data)
 {
 	char uri[270];
 	GError *error = NULL;
-	sprintf(uri, "file://%s/Pictures", getenv("HOME"));
+	sprintf(uri, "file://%s", g_get_user_special_dir(G_USER_DIRECTORY_PICTURES));
 	if (!g_app_info_launch_default_for_uri(uri, NULL, &error)) {
 		g_printerr("Could not launch image viewer: %s\n", error->message);
 	}
@@ -350,7 +415,93 @@ on_open_directory_clicked(GtkWidget *widget, gpointer user_data)
 void
 on_shutter_clicked(GtkWidget *widget, gpointer user_data)
 {
+	gtk_spinner_start(GTK_SPINNER(process_spinner));
+	gtk_stack_set_visible_child(GTK_STACK(open_last_stack), process_spinner);
 	mp_io_pipeline_capture();
+}
+
+static bool
+check_point_inside_bounds(int x, int y, int *bounds_x, int *bounds_y)
+{
+	bool right = false, left = false, top = false, bottom = false;
+
+	for (int i = 0; i < 4; ++i) {
+		if (x <= bounds_x[i])
+			left = true;
+		if (x >= bounds_x[i])
+			right = true;
+		if (y <= bounds_y[i])
+			top = true;
+		if (y >= bounds_y[i])
+			bottom = true;
+	}
+
+	return right && left && top && bottom;
+}
+
+static void
+on_zbar_code_tapped(GtkWidget *widget, const MPZBarCode *code)
+{
+	GtkWidget *dialog;
+	GtkDialogFlags flags = GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT;
+	bool data_is_url = strncmp(code->data, "http://", 7) == 0
+			|| strncmp(code->data, "https://", 8) == 0
+			|| strncmp(code->data, "gemini://", 9) == 0;
+
+	char* data = strdup(code->data);
+
+	if (data_is_url) {
+		dialog = gtk_message_dialog_new(
+			GTK_WINDOW(gtk_widget_get_toplevel(widget)),
+			flags,
+			GTK_MESSAGE_QUESTION,
+			GTK_BUTTONS_NONE,
+			"Found a URL '%s' encoded in a %s code.",
+			code->data,
+			code->type);
+		gtk_dialog_add_buttons(
+			GTK_DIALOG(dialog),
+			"_Open URL",
+			GTK_RESPONSE_YES,
+			NULL);
+	} else {
+		dialog = gtk_message_dialog_new(
+			GTK_WINDOW(gtk_widget_get_toplevel(widget)),
+			flags,
+			GTK_MESSAGE_QUESTION,
+			GTK_BUTTONS_NONE,
+			"Found '%s' encoded in a %s code.",
+			code->data,
+			code->type);
+	}
+	gtk_dialog_add_buttons(
+		GTK_DIALOG(dialog),
+		"_Copy",
+		GTK_RESPONSE_ACCEPT,
+		"_Cancel",
+		GTK_RESPONSE_CANCEL,
+		NULL);
+
+	int result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	GError *error = NULL;
+	switch (result) {
+		case GTK_RESPONSE_YES:
+			if (!g_app_info_launch_default_for_uri(data,
+							       NULL, &error)) {
+				g_printerr("Could not launch browser: %s\n",
+					   error->message);
+			}
+		case GTK_RESPONSE_ACCEPT:
+			gtk_clipboard_set_text(
+				gtk_clipboard_get(GDK_SELECTION_PRIMARY),
+				data, -1);
+		case GTK_RESPONSE_CANCEL:
+			break;
+		default:
+			g_printerr("Wrong dialog result: %d\n", result);
+	}
+	gtk_widget_destroy(dialog);
 }
 
 void
@@ -390,6 +541,25 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 		}
 
 		return;
+	}
+
+	// Tapped zbar result
+	if (zbar_result) {
+		// Transform the event coordinates to the image
+		int width = cairo_image_surface_get_width(surface);
+		int height = cairo_image_surface_get_height(surface);
+		double scale = MIN(preview_width / (double)width, preview_height / (double)height);
+		int x = (event->x - preview_width / 2) / scale + width / 2;
+		int y = (event->y - preview_height / 2) / scale + height / 2;
+
+		for (uint8_t i = 0; i < zbar_result->size; ++i) {
+			MPZBarCode *code = &zbar_result->codes[i];
+
+			if (check_point_inside_bounds(x, y, code->bounds_x, code->bounds_y)) {
+				on_zbar_code_tapped(widget, code);
+				return;
+			}
+		}
 	}
 
 	// Tapped preview image itself, try focussing
@@ -454,6 +624,26 @@ on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
 	}
 
 	if (has_changed) {
+		// The slider might have been moved while Auto mode is active. When entering
+		// Manual mode, first read the slider value to sync with those changes.
+		double value = gtk_adjustment_get_value(control_slider);
+		switch (current_control) {
+		case USER_CONTROL_ISO:
+			if (value != gain) {
+				gain = (int)value;
+			}
+			break;
+		case USER_CONTROL_SHUTTER: {
+			// So far all sensors use exposure time in number of sensor rows
+			int new_exposure =
+				(int)(value / 360.0 * camera->capture_mode.height);
+			if (new_exposure != exposure) {
+				exposure = new_exposure;
+			}
+			break;
+		}
+		}
+
 		update_io_pipeline();
 		draw_controls();
 	}
@@ -522,7 +712,9 @@ main(int argc, char *argv[])
 	error_box = GTK_WIDGET(gtk_builder_get_object(builder, "error_box"));
 	error_message = GTK_WIDGET(gtk_builder_get_object(builder, "error_message"));
 	main_stack = GTK_WIDGET(gtk_builder_get_object(builder, "main_stack"));
+	open_last_stack = GTK_WIDGET(gtk_builder_get_object(builder, "open_last_stack"));
 	thumb_last = GTK_WIDGET(gtk_builder_get_object(builder, "thumb_last"));
+	process_spinner = GTK_WIDGET(gtk_builder_get_object(builder, "process_spinner"));
 	control_box = GTK_WIDGET(gtk_builder_get_object(builder, "control_box"));
 	control_name = GTK_WIDGET(gtk_builder_get_object(builder, "control_name"));
 	control_slider =
