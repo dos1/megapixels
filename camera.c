@@ -342,12 +342,14 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		struct v4l2_subdev_frame_interval interval = {};
 		interval.pad = 0;
 		interval.interval = mode->frame_interval;
-		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
+        // This can fail and is quite normal
+/*
+        if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
 			   &interval) == -1) {
 			errno_printerr("VIDIOC_SUBDEV_S_FRAME_INTERVAL");
 			return false;
 		}
-
+*/
 		bool did_set_frame_rate = interval.interval.numerator ==
 						  mode->frame_interval.numerator &&
 					  interval.interval.denominator ==
@@ -587,6 +589,7 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 			/* fallthrough */
 		default:
 			errno_printerr("VIDIOC_DQBUF");
+            exit(1);
 			return false;
 		}
 	}

@@ -118,7 +118,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		}
 
 		const struct media_v2_entity *entity =
-			mp_device_find_entity_type(info->device, MEDIA_ENT_F_IO_V4L);
+            mp_device_find_entity_type(info->device, MEDIA_ENT_F_IO_V4L);
 		if (!entity) {
 			g_printerr("Could not find device video entity\n");
 			exit(EXIT_FAILURE);
@@ -128,13 +128,17 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			mp_device_get_pad_from_entity(info->device, entity->id);
 		info->interface_pad_id = pad->id;
 
-		const struct media_v2_interface *interface =
-			mp_device_find_entity_interface(info->device, entity->id);
-		char dev_name[260];
+        char dev_name[260];
+        /*
+        const struct media_v2_interface *interface =
+            mp_device_find_entity_interface(info->device, entity->id);
+
 		if (!mp_find_device_path(interface->devnode, dev_name, 260)) {
 			g_printerr("Could not find video path\n");
 			exit(EXIT_FAILURE);
 		}
+        */
+        strncpy(dev_name, config->dev_name, 260);
 
 		info->video_fd = open(dev_name, O_RDWR);
 		if (info->video_fd == -1) {
@@ -150,7 +154,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		struct device_info *dev_info = &devices[device_index];
 
 		info->device_index = device_index;
-
+/*
 		const struct media_v2_entity *entity =
 			mp_device_find_entity(dev_info->device, config->dev_name);
 		if (!entity) {
@@ -182,7 +186,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			g_printerr("Could not open %s: %s\n", info->dev_fname, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-
+*/
+        info->fd = -1;// dev_info->video_fd;
 		info->camera = mp_camera_new(dev_info->video_fd, info->fd);
 
 		// Trigger continuous auto focus if the sensor supports it
@@ -212,7 +217,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 static void
 setup(MPPipeline *pipeline, const void *data)
 {
-	MPDeviceList *device_list = mp_device_list_new();
+    MPDeviceList *device_list = mp_device_list_new_legacy();
 
 	for (size_t i = 0; i < MP_MAX_CAMERAS; ++i) {
 		const struct mp_camera_config *config = mp_get_camera_config(i);

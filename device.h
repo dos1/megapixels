@@ -13,6 +13,7 @@ typedef struct _MPDevice MPDevice;
 MPDevice *mp_device_find(const char *driver_name);
 MPDevice *mp_device_open(const char *path);
 MPDevice *mp_device_new(int fd);
+MPDevice *mp_device_new_legacy(int fd);
 void mp_device_close(MPDevice *device);
 
 bool mp_device_setup_link(MPDevice *device, uint32_t source_pad_id,
@@ -53,6 +54,7 @@ size_t mp_device_get_num_links(const MPDevice *device);
 typedef struct _MPDeviceList MPDeviceList;
 
 MPDeviceList *mp_device_list_new();
+MPDeviceList *mp_device_list_new_legacy(void);
 void mp_device_list_free(MPDeviceList *device_list);
 
 MPDevice *mp_device_list_find_remove(MPDeviceList **device_list,

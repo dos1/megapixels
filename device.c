@@ -72,7 +72,7 @@ xioctl(int fd, int request, void *arg)
 MPDevice *
 mp_device_find(const char *driver_name)
 {
-	MPDeviceList *list = mp_device_list_new();
+    MPDeviceList *list = mp_device_list_new_legacy();
 
 	MPDevice *found_device = mp_device_list_find_remove(&list, driver_name);
 
@@ -90,7 +90,7 @@ mp_device_open(const char *path)
 		return NULL;
 	}
 
-	return mp_device_new(fd);
+    return mp_device_new_legacy(fd);
 }
 
 MPDevice *
@@ -137,6 +137,44 @@ mp_device_new(int fd)
 	}
 
 	return device;
+}
+
+MPDevice *
+mp_device_new_legacy(int fd)
+{
+    // Get the topology of the media device
+    struct media_v2_topology topology = {
+        .num_entities = 1,
+        .num_interfaces = 1,
+        .num_pads = 1,
+        .num_links = 1,
+    };
+
+    // Create the device
+    MPDevice *device = calloc(1, sizeof(MPDevice));
+    device->fd = fd;
+    device->entities =
+        calloc(topology.num_entities, sizeof(struct media_v2_entity));
+    device->num_entities = topology.num_entities;
+    device->interfaces =
+        calloc(topology.num_interfaces, sizeof(struct media_v2_interface));
+    device->num_interfaces = topology.num_interfaces;
+    device->pads = calloc(topology.num_pads, sizeof(struct media_v2_pad));
+    device->num_pads = topology.num_pads;
+    device->links = calloc(topology.num_links, sizeof(struct media_v2_link));
+    device->num_links = topology.num_links;
+
+    struct media_device_info info = {
+        .driver = "legacy",
+        .model = "legacy",
+        .serial = "",
+        .bus_info = "",
+    };
+    device->info = info;
+
+    device->entities[0].function = MEDIA_ENT_F_IO_V4L;
+
+    return device;
 }
 
 void
@@ -398,6 +436,33 @@ mp_device_list_new()
 	closedir(d);
 
 	return current;
+}
+
+MPDeviceList *
+mp_device_list_new_legacy()
+{
+    MPDeviceList *current = NULL;
+
+    // Enumerate video files
+    struct dirent *dir;
+    DIR *d = opendir("/dev");
+    while ((dir = readdir(d)) != NULL) {
+        if (strncmp(dir->d_name, "video", 5) == 0) {
+            char path[261];
+            snprintf(path, 261, "/dev/%s", dir->d_name);
+
+            MPDevice *device = mp_device_open(path);
+            if (device) {
+                MPDeviceList *next = malloc(sizeof(MPDeviceList));
+                next->device = device;
+                next->next = current;
+                current = next;
+            }
+        }
+    }
+    closedir(d);
+
+    return current;
 }
 
 void
