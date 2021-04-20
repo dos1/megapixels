@@ -284,6 +284,7 @@ static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
 	uint32_t pixfmt = mp_pixel_format_from_v4l_pixel_format(mode->pixel_format);
+    printf("format %d", mode->pixel_format);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
