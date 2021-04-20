@@ -11,7 +11,7 @@
 
 static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
 	"unsupported", "BGGR8",	  "GBRG8",   "GRBG8", "RGGB8", "BGGR10P",
-	"GBRG10P",     "GRBG10P", "RGGB10P", "UYVY",  "YUYV",
+    "GBRG10P",     "GRBG10P", "RGGB10P", "UYVY",  "YUYV",
 };
 
 const char *
@@ -38,7 +38,8 @@ static const uint32_t pixel_format_v4l_pixel_formats[MP_PIXEL_FMT_MAX] = {
 	V4L2_PIX_FMT_SGBRG8,
 	V4L2_PIX_FMT_SGRBG8,
 	V4L2_PIX_FMT_SRGGB8,
-	V4L2_PIX_FMT_SBGGR10P,
+    //V4L2_PIX_FMT_SBGGR10P,
+    V4L2_PIX_FMT_SBGGR10,
 	V4L2_PIX_FMT_SGBRG10P,
 	V4L2_PIX_FMT_SGRBG10P,
 	V4L2_PIX_FMT_SRGGB10P,
@@ -75,7 +76,7 @@ static const uint32_t pixel_format_v4l_bus_codes[MP_PIXEL_FMT_MAX] = {
 	MEDIA_BUS_FMT_SGRBG10_1X10,
 	MEDIA_BUS_FMT_SRGGB10_1X10,
 	MEDIA_BUS_FMT_UYVY8_2X8,
-	MEDIA_BUS_FMT_YUYV8_2X8,
+    MEDIA_BUS_FMT_YUYV8_2X8,
 };
 
 uint32_t
@@ -106,11 +107,11 @@ mp_pixel_format_bits_per_pixel(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GRBG8:
 	case MP_PIXEL_FMT_RGGB8:
 		return 8;
-	case MP_PIXEL_FMT_BGGR10P:
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
-		return 10;
+        return 10;
+    case MP_PIXEL_FMT_BGGR10P:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return 16;
@@ -615,9 +616,9 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 		bytesused = buf.bytesused;
 	}
 
-	assert(bytesused ==
-	       mp_pixel_format_width_to_bytes(pixel_format, width) * height);
-	assert(bytesused == camera->buffers[buf.index].length);
+    assert(bytesused ==
+           mp_pixel_format_width_to_bytes(pixel_format, width) * height);
+    assert(bytesused == camera->buffers[buf.index].length);
 
 	MPImage image = {
 		.pixel_format = pixel_format,
