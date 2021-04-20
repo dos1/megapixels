@@ -285,6 +285,8 @@ static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
     switch (fmt) {
     case MP_PIXEL_FMT_BGGR10P:
         return V4L2_PIX_FMT_SBGGR10;
+    case MP_PIXEL_FMT_BGGR8:
+        return V4L2_PIX_FMT_SBGGR8;
     default:
         return 0;
     }
