@@ -280,11 +280,20 @@ mp_camera_get_subdev_fd(MPCamera *camera)
 	return camera->subdev_fd;
 }
 
+static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
+    switch (fmt) {
+    case MP_PIXEL_FMT_BGGR10P:
+        return V4L2_PIX_FMT_SBGGR10;
+    default:
+        return 0;
+    }
+}
+
 static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
-	uint32_t pixfmt = mp_pixel_format_from_v4l_pixel_format(mode->pixel_format);
-    printf("format %d", mode->pixel_format);
+    uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
+    printf("format %d %x", mode->pixel_format, pixfmt);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
