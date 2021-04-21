@@ -10,8 +10,10 @@
 #define MAX_VIDEO_BUFFERS 20
 
 static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
-	"unsupported", "BGGR8",	  "GBRG8",   "GRBG8", "RGGB8", "BGGR10P",
-    "GBRG10P",     "GRBG10P", "RGGB10P", "UYVY",  "YUYV",
+	"unsupported", "BGGR8",	"GBRG8", "GRBG8", "RGGB8",
+    "BGGR10P", "GBRG10P", "GRBG10P", "RGGB10P", 
+    "BGGR10", "GBRG10", "GRBG10", "RGGB10", 
+    "UYVY",  "YUYV",
 };
 
 const char *
@@ -38,11 +40,14 @@ static const uint32_t pixel_format_v4l_pixel_formats[MP_PIXEL_FMT_MAX] = {
 	V4L2_PIX_FMT_SGBRG8,
 	V4L2_PIX_FMT_SGRBG8,
 	V4L2_PIX_FMT_SRGGB8,
-    //V4L2_PIX_FMT_SBGGR10P,
-    V4L2_PIX_FMT_SBGGR10,
+    V4L2_PIX_FMT_SBGGR10P,
 	V4L2_PIX_FMT_SGBRG10P,
 	V4L2_PIX_FMT_SGRBG10P,
 	V4L2_PIX_FMT_SRGGB10P,
+	V4L2_PIX_FMT_SBGGR10,
+	V4L2_PIX_FMT_SGBRG10,
+	V4L2_PIX_FMT_SGRBG10,
+	V4L2_PIX_FMT_SRGGB10,
 	V4L2_PIX_FMT_UYVY,
 	V4L2_PIX_FMT_YUYV,
 };
@@ -71,6 +76,10 @@ static const uint32_t pixel_format_v4l_bus_codes[MP_PIXEL_FMT_MAX] = {
 	MEDIA_BUS_FMT_SGBRG8_1X8,
 	MEDIA_BUS_FMT_SGRBG8_1X8,
 	MEDIA_BUS_FMT_SRGGB8_1X8,
+	MEDIA_BUS_FMT_SBGGR10_1X10,
+	MEDIA_BUS_FMT_SGBRG10_1X10,
+	MEDIA_BUS_FMT_SGRBG10_1X10,
+	MEDIA_BUS_FMT_SRGGB10_1X10,
 	MEDIA_BUS_FMT_SBGGR10_1X10,
 	MEDIA_BUS_FMT_SGBRG10_1X10,
 	MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -110,8 +119,12 @@ mp_pixel_format_bits_per_pixel(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
-        return 10;
     case MP_PIXEL_FMT_BGGR10P:
+        return 10;
+	case MP_PIXEL_FMT_GBRG10:
+	case MP_PIXEL_FMT_GRBG10:
+	case MP_PIXEL_FMT_RGGB10:
+    case MP_PIXEL_FMT_BGGR10:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return 16;
@@ -148,6 +161,10 @@ mp_pixel_format_width_to_colors(MPPixelFormat pixel_format, uint32_t width)
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
 		return width / 2 * 5;
+	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG10:
+	case MP_PIXEL_FMT_GRBG10:
+	case MP_PIXEL_FMT_RGGB10:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return width;
@@ -169,6 +186,10 @@ mp_pixel_format_height_to_colors(MPPixelFormat pixel_format, uint32_t height)
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
+	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG10:
+	case MP_PIXEL_FMT_GRBG10:
+	case MP_PIXEL_FMT_RGGB10:
 		return height / 2;
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
@@ -284,7 +305,15 @@ mp_camera_get_subdev_fd(MPCamera *camera)
 static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
     switch (fmt) {
     case MP_PIXEL_FMT_BGGR10P:
+        return V4L2_PIX_FMT_SBGGR10P;
+    case MP_PIXEL_FMT_BGGR10:
         return V4L2_PIX_FMT_SBGGR10;
+    case MP_PIXEL_FMT_GRBG10:
+        return V4L2_PIX_FMT_SGRBG10;
+    case MP_PIXEL_FMT_GBRG10:
+        return V4L2_PIX_FMT_SGBRG10;
+    case MP_PIXEL_FMT_RGGB10:
+        return V4L2_PIX_FMT_SRGGB10;
     case MP_PIXEL_FMT_BGGR8:
         return V4L2_PIX_FMT_SBGGR8;
     case MP_PIXEL_FMT_GRBG8:
@@ -298,7 +327,7 @@ static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
     uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
-    printf("format %d %x", mode->pixel_format, pixfmt);
+    g_printerr("format %d %x\n", mode->pixel_format, pixfmt);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -337,7 +366,7 @@ bool
 mp_camera_try_mode(MPCamera *camera, MPCameraMode *mode)
 {
 	if (!camera_mode_impl(camera, VIDIOC_TRY_FMT, mode)) {
-		errno_printerr("VIDIOC_S_FMT");
+		errno_printerr("VIDIOC_TRY_FMT");
 		return false;
 	}
 	return true;
