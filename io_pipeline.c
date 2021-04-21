@@ -323,11 +323,25 @@ capture(MPPipeline *pipeline, const void *data)
 	mp_process_pipeline_capture();
 }
 
+static void
+release(MPPipeline *pipeline, const void *data) {
+    struct camera_info *info = &cameras[camera->index];
+    mp_camera_stop_capture(info->camera);
+}
+
 void
 mp_io_pipeline_capture()
 {
 	mp_pipeline_invoke(pipeline, capture, NULL, 0);
 }
+
+
+void
+mp_io_pipeline_release(void)
+{
+    mp_pipeline_invoke(pipeline, release, NULL, 0);
+}
+
 
 static void
 update_controls()

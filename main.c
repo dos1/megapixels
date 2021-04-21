@@ -687,6 +687,11 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 	}
 }
 
+void on_quit(void) {
+    mp_io_pipeline_release();
+    gtk_main_quit();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -727,7 +732,7 @@ main(int argc, char *argv[])
 	control_slider =
 		GTK_ADJUSTMENT(gtk_builder_get_object(builder, "control_adj"));
 	control_auto = GTK_WIDGET(gtk_builder_get_object(builder, "control_auto"));
-	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(window, "destroy", G_CALLBACK(on_quit), NULL);
 	g_signal_connect(shutter, "clicked", G_CALLBACK(on_shutter_clicked), NULL);
 	g_signal_connect(error_close, "clicked", G_CALLBACK(on_error_close_clicked),
 			 NULL);
