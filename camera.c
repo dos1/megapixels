@@ -1179,13 +1179,13 @@ control_impl_int32(MPCamera *camera, uint32_t id, int request, int32_t *value)
 bool
 mp_camera_control_try_int32(MPCamera *camera, uint32_t id, int32_t *v)
 {
-	return control_impl_int32(camera, id, VIDIOC_TRY_EXT_CTRLS, v);
+    return false;//control_impl_int32(camera, id, VIDIOC_TRY_EXT_CTRLS, v);
 }
 
 bool
 mp_camera_control_set_int32(MPCamera *camera, uint32_t id, int32_t v)
 {
-	return control_impl_int32(camera, id, VIDIOC_S_EXT_CTRLS, &v);
+    return false;//control_impl_int32(camera, id, VIDIOC_S_EXT_CTRLS, &v);
 }
 
 int32_t
@@ -1200,7 +1200,7 @@ bool
 mp_camera_control_try_boolean(MPCamera *camera, uint32_t id, bool *v)
 {
 	int32_t value = *v;
-	bool s = control_impl_int32(camera, id, VIDIOC_TRY_EXT_CTRLS, &value);
+    bool s = false;//control_impl_int32(camera, id, VIDIOC_TRY_EXT_CTRLS, &value);
 	*v = value;
 	return s;
 }
@@ -1209,7 +1209,7 @@ bool
 mp_camera_control_set_bool(MPCamera *camera, uint32_t id, bool v)
 {
 	int32_t value = v;
-	return control_impl_int32(camera, id, VIDIOC_S_EXT_CTRLS, &value);
+    return false;//control_impl_int32(camera, id, VIDIOC_S_EXT_CTRLS, &value);
 }
 
 bool
