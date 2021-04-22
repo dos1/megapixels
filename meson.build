@@ -59,6 +59,8 @@ install_data([
   'config/pine64,pinephone-1.2.ini',
   'config/pine64,pinetab.ini',
   'config/purism,librem5r2.ini',
+  'config/purism,librem5r3.ini',
+  'config/purism,librem5r4.ini',
   ],
   install_dir : get_option('datadir') / 'megapixels/config/')
 
