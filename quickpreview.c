@@ -29,6 +29,16 @@ static const int srgb[] = {
 	250, 250, 251, 251, 251, 252, 252, 253, 253, 254, 254, 255
 };
 
+static uint16_t srgb10[1024];
+
+void pop_srgb10()
+{
+    int i;
+
+    for (i=0; i<1024; i++)
+        srgb10[i] = i>>2;
+}
+
 static inline uint32_t
 pack_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -96,7 +106,12 @@ coord_map(uint32_t x, uint32_t y, uint32_t width, uint32_t height, int rotation,
 
 	uint32_t index = y_r * width + x_r;
 #ifdef DEBUG
+    if ((index >= width * height) || (index < 0)) {
+        g_printerr("MPCamera: x:y %d:%d x_r:y_r %d:%d\n", x, y, x_r, y_r);
+        g_printerr("MPCamera: %d:%d:%d\n", index, width, height);
+    }
 	assert(index < width * height);
+	assert(index >= 0);
 #endif
 	return index;
 }
@@ -152,7 +167,7 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 }
 
 static void
-quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
+quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		     const uint32_t dst_height, const uint8_t *src,
 		     const uint32_t src_width, const uint32_t src_height,
 		     const MPPixelFormat format, const uint32_t rotation,
@@ -197,11 +212,68 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 				      mirrored)] = color;
 
 			uint32_t advance = 1 + skip;
-			if (src_x % 5 == 0) {
-				src_x += 2 * (advance % 2) + 5 * (advance / 2);
-			} else {
-				src_x += 3 * (advance % 2) + 5 * (advance / 2);
+            if (src_x % 5 == 0) {
+                src_x += 2 * (advance % 2) + 5 * (advance / 2);
+            } else {
+                src_x += 3 * (advance % 2) + 5 * (advance / 2);
+            }
+			++dst_x;
+		}
+
+		src_y += 2 + 2 * skip;
+		++dst_y;
+	}
+}
+
+static void
+quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
+		     const uint32_t dst_height, const uint8_t *src,
+		     const uint32_t src_width, const uint32_t src_height,
+		     const MPPixelFormat format, const uint32_t rotation,
+		     const bool mirrored, const float *colormatrix,
+		     const uint8_t blacklevel, const uint32_t skip)
+{
+	assert(src_width % 2 == 0);
+    uint16_t *src16 = (uint16_t *)src;
+
+#ifdef DEBUG
+	g_printerr("MPCamera: dst %d:%d src %d:%d skip: %d blacklevel %d\n", dst_width, dst_height, src_width, src_height, skip, blacklevel);
+#endif
+
+	uint32_t src_y = 0, dst_y = 0;
+	while (src_y < src_height) {
+		uint32_t src_x = 0, dst_x = 0;
+		while (src_x < src_width) {
+			uint32_t src_i = src_y * src_width + src_x;
+    
+			uint8_t b0 = srgb10[src16[src_i] - blacklevel];
+			uint8_t b1 = srgb10[src16[src_i + 1] - blacklevel];
+			uint8_t b2 = srgb10[src16[src_i + src_width + 1] - blacklevel];
+
+			uint32_t color;
+			switch (format) {
+			case MP_PIXEL_FMT_BGGR10:
+				color = pack_rgb(b2, b1, b0);
+				break;
+			case MP_PIXEL_FMT_GBRG10:
+				color = pack_rgb(b2, b0, b1);
+				break;
+			case MP_PIXEL_FMT_GRBG10:
+				color = pack_rgb(b1, b0, b2);
+				break;
+			case MP_PIXEL_FMT_RGGB10:
+				color = pack_rgb(b0, b1, b2);
+				break;
+			default:
+				assert(false);
 			}
+
+			color = apply_colormatrix(color, colormatrix);
+
+			dst[coord_map(dst_x, dst_y, dst_width, dst_height, rotation,
+				      mirrored)] = color;
+
+            src_x += 2 + 2 * skip;
 			++dst_x;
 		}
 
@@ -296,6 +368,14 @@ quick_preview(uint32_t *dst, const uint32_t dst_width, const uint32_t dst_height
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
+		quick_preview_rggb10p(dst, dst_width, dst_height, src, src_width,
+				     src_height, format, rotation, mirrored,
+				     colormatrix, blacklevel, skip);
+		break;
+	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG10:
+	case MP_PIXEL_FMT_GRBG10:
+	case MP_PIXEL_FMT_RGGB10:
 		quick_preview_rggb10(dst, dst_width, dst_height, src, src_width,
 				     src_height, format, rotation, mirrored,
 				     colormatrix, blacklevel, skip);

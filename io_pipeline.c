@@ -91,6 +91,8 @@ static bool want_focus = false;
 static MPPipeline *pipeline;
 static GSource *capture_source;
 
+void pop_srgb10(void);
+
 static void
 setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 {
@@ -102,6 +104,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			break;
 		}
 	}
+
+    pop_srgb10();
 
 	if (device_index == num_devices) {
 		device_index = num_devices;
