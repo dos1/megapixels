@@ -1,0 +1,24 @@
+From 86cc271eaeb57235c2ac219219e45ecda1d2fa84 Mon Sep 17 00:00:00 2001
+From: Arnaud Ferraris <arnaud.ferraris@collabora.com>
+Date: Wed, 16 Sep 2020 15:36:36 +0200
+Subject: [PATCH] desktop: add main category and keywords
+
+---
+ data/org.postmarketos.Megapixels.desktop | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/data/org.postmarketos.Megapixels.desktop b/data/org.postmarketos.Megapixels.desktop
+index 8b9a0ab..8c48111 100644
+--- a/data/org.postmarketos.Megapixels.desktop
++++ b/data/org.postmarketos.Megapixels.desktop
+@@ -3,5 +3,6 @@ Name=Megapixels
+ Exec=megapixels /etc/megapixels.ini
+ Terminal=false
+ Type=Application
+-Categories=GTK;
++Categories=GTK;Graphics;Photography
++Keywords=camera
+ Icon=org.postmarketos.Megapixels
+-- 
+2.28.0
+

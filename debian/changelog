@@ -1,0 +1,38 @@
+megapixels (0.13.1-2) unstable; urgency=medium
+
+  [ Arnaud Ferraris ]
+  * d/patches: fix build with libtiff 4.2.0
+  * d/control: depend on libtiff 4.2.0+
+
+ -- Federico Ceratto <federico@debian.org>  Fri, 25 Dec 2020 14:39:51 +0000
+
+megapixels (0.13.1-1) unstable; urgency=medium
+
+  [ Arnaud Ferraris ]
+  * New upstream release for 0.13.1
+  * d/copyright: add metainfo license information
+  * d/control: bump Standards-Version
+
+ -- Federico Ceratto <federico@debian.org>  Sun, 13 Dec 2020 14:36:25 +0000
+
+megapixels (0.12.0-1) unstable; urgency=medium
+
+  [ Arnaud Ferraris ]
+  * New upstream release 0.12.0
+  * d/control: update dependencies
+    Megapixels now build-depends on libtiff, and uses a post-processing
+    script relying on dcraw.
+    The post-processing script can also take advantage of `imagemagick` and
+    `exiftool` if they're installed, but can work without those. So add a
+    `Recommends` on packages providing these utilities.
+  * d/upstream: metadata: add Bug-Database
+  * d/copyright: drop entries corresponding to removed files
+
+ -- Federico Ceratto <federico@debian.org>  Sun, 22 Nov 2020 20:30:27 +0000
+
+megapixels (0.9.0-1) unstable; urgency=medium
+
+  [ Arnaud Ferraris ]
+  * Initial Debian release (Closes: #970794)
+
+ -- Federico Ceratto <federico@debian.org>  Thu, 24 Sep 2020 21:15:21 +0100
