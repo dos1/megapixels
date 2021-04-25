@@ -99,8 +99,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 	// Find device info
 	size_t device_index = 0;
 	for (; device_index < num_devices; ++device_index) {
-		if (strcmp(config->media_dev_name,
-			   devices[device_index].media_dev_name) == 0) {
+        if (strcmp(config->media_dev_name,
+               devices[device_index].media_dev_name) == 0) {
 			break;
 		}
 	}
@@ -114,10 +114,10 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		struct device_info *info = &devices[device_index];
 		info->media_dev_name = config->media_dev_name;
 		info->device = mp_device_list_find_remove(device_list,
-							  info->media_dev_name);
+                              info->media_dev_name);
 		if (!info->device) {
 			g_printerr("Could not find /dev/media* node matching '%s'\n",
-				   info->media_dev_name);
+                   info->media_dev_name);
 			exit(EXIT_FAILURE);
 		}
 
@@ -144,7 +144,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
         */
         strncpy(dev_name, config->dev_name, 260);
 
-		info->video_fd = open(dev_name, O_RDWR);
+        info->video_fd = open(config->media_dev_name, O_RDWR);
 		if (info->video_fd == -1) {
 			g_printerr("Could not open %s: %s\n", dev_name, strerror(errno));
 			exit(EXIT_FAILURE);

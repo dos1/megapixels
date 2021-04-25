@@ -13,7 +13,7 @@ typedef struct _MPDevice MPDevice;
 MPDevice *mp_device_find(const char *driver_name);
 MPDevice *mp_device_open(const char *path);
 MPDevice *mp_device_new(int fd);
-MPDevice *mp_device_new_legacy(int fd);
+MPDevice *mp_device_new_legacy(int fd, const char *path);
 void mp_device_close(MPDevice *device);
 
 bool mp_device_setup_link(MPDevice *device, uint32_t source_pad_id,

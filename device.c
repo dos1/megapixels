@@ -1,5 +1,7 @@
 #include "device.h"
 
+#define _DEFAULT_SOURCE 1
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
@@ -51,6 +53,8 @@ struct _MPDevice {
 	size_t num_pads;
 	struct media_v2_link *links;
 	size_t num_links;
+
+    char path[250];
 };
 
 static void
@@ -90,7 +94,7 @@ mp_device_open(const char *path)
 		return NULL;
 	}
 
-    return mp_device_new_legacy(fd);
+    return mp_device_new_legacy(fd, path);
 }
 
 MPDevice *
@@ -140,7 +144,7 @@ mp_device_new(int fd)
 }
 
 MPDevice *
-mp_device_new_legacy(int fd)
+mp_device_new_legacy(int fd, const char *path)
 {
     // Get the topology of the media device
     struct media_v2_topology topology = {
@@ -173,7 +177,7 @@ mp_device_new_legacy(int fd)
     device->info = info;
 
     device->entities[0].function = MEDIA_ENT_F_IO_V4L;
-
+    strncpy(device->path, path, 240);
     return device;
 }
 
@@ -445,11 +449,11 @@ mp_device_list_new_legacy()
 
     // Enumerate video files
     struct dirent *dir;
-    DIR *d = opendir("/dev");
+    DIR *d = opendir("/dev/v4l/by-path");
     while ((dir = readdir(d)) != NULL) {
-        if (strncmp(dir->d_name, "video", 5) == 0) {
-            char path[261];
-            snprintf(path, 261, "/dev/%s", dir->d_name);
+        if (dir->d_type != DT_DIR) {
+            char path[512];
+            snprintf(path, 512, "/dev/v4l/by-path/%s", dir->d_name);
 
             MPDevice *device = mp_device_open(path);
             if (device) {
@@ -485,9 +489,7 @@ mp_device_list_find_remove(MPDeviceList **list, const char *driver_name)
 
 	while (*list) {
 		MPDevice *device = mp_device_list_get(*list);
-		const struct media_device_info *info = mp_device_get_info(device);
-
-		if (strncmp(info->driver, driver_name, length) == 0) {
+        if (strncmp(device->path, driver_name, length) == 0) {
 			found_device = mp_device_list_remove(list);
 			break;
 		}
