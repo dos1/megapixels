@@ -236,7 +236,7 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 	assert(src_width % 2 == 0);
     uint16_t *src16 = (uint16_t *)src;
 
-#ifdef DEBUG
+#ifdef NO
 	g_printerr("MPCamera: dst %d:%d src %d:%d skip: %d blacklevel %d\n", dst_width, dst_height, src_width, src_height, skip, blacklevel);
 #endif
 
