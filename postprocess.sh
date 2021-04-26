@@ -24,7 +24,6 @@ MAIN_PICTURE="$BURST_DIR"/1
 # Copy the first frame of the burst as the raw photo
 cp "$BURST_DIR"/1.dng "$TARGET_NAME.dng"
 
-exit 2
 # Create a .jpg if raw processing tools are installed
 DCRAW=""
 TIFF_EXT="dng.tiff"
