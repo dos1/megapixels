@@ -22,6 +22,7 @@ Depends:
  ${shlibs:Depends},
  libraw-bin,
 Recommends:
+ dcraw,
  graphicsmagick-imagemagick-compat | imagemagick,
  libimage-exiftool-perl,
 Description: GTK3 camera app for mobile using the V4L2 media request API
