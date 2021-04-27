@@ -1,6 +1,7 @@
 #include "process_pipeline.h"
 
 #include "pipeline.h"
+#include "zbar_pipeline.h"
 #include "main.h"
 #include "config.h"
 #include "quickpreview.h"
@@ -120,15 +121,20 @@ mp_process_pipeline_start()
 	pipeline = mp_pipeline_new();
 
 	mp_pipeline_invoke(pipeline, setup, NULL, 0);
+
+
+	mp_zbar_pipeline_start();
 }
 
 void
 mp_process_pipeline_stop()
 {
 	mp_pipeline_free(pipeline);
+
+	mp_zbar_pipeline_stop();
 }
 
-static void
+static cairo_surface_t *
 process_image_for_preview(const MPImage *image)
 {
 	uint32_t surface_width, surface_height, skip;
@@ -147,7 +153,24 @@ process_image_for_preview(const MPImage *image)
 		      camera->previewmatrix[0] == 0 ? NULL : camera->previewmatrix,
 		      camera->blacklevel, skip);
 
+	// Create a thumbnail from the preview for the last capture
+	cairo_surface_t *thumb = NULL;
+	if (captures_remaining == 1) {
+		printf("Making thumbnail\n");
+		thumb = cairo_image_surface_create(
+			CAIRO_FORMAT_ARGB32, MP_MAIN_THUMB_SIZE, MP_MAIN_THUMB_SIZE);
+
+		cairo_t *cr = cairo_create(thumb);
+		draw_surface_scaled_centered(
+			cr, MP_MAIN_THUMB_SIZE, MP_MAIN_THUMB_SIZE, surface);
+		cairo_destroy(cr);
+	}
+
+	// Pass processed preview to main and zbar
+	mp_zbar_pipeline_process_image(cairo_surface_reference(surface));
 	mp_main_set_preview(surface);
+
+	return thumb;
 }
 
 static void
@@ -236,7 +259,12 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 	static const short cfapatterndim[] = { 2, 2 };
 	TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfapatterndim);
+#if (TIFFLIB_VERSION < 20201219) && !LIBTIFF_CFA_PATTERN
 	TIFFSetField(tif, TIFFTAG_CFAPATTERN, "\002\001\001\000"); // BGGR
+#else
+	TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, "\002\001\001\000"); // BGGR
+#endif
+	printf("TIFF version %d\n", TIFFLIB_VERSION);
 	if (camera->whitelevel) {
 		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &camera->whitelevel);
 	}
@@ -297,7 +325,30 @@ process_image_for_capture(const MPImage *image, int count)
 }
 
 static void
-process_capture_burst()
+post_process_finished(GSubprocess *proc, GAsyncResult *res, cairo_surface_t *thumb)
+{
+	char *stdout;
+	g_subprocess_communicate_utf8_finish(proc, res, &stdout, NULL, NULL);
+
+	// The last line contains the file name
+	int end = strlen(stdout);
+	// Skip the newline at the end
+	stdout[--end] = '\0';
+
+	char *path = path = stdout + end - 1;
+	do {
+		if (*path == '\n') {
+			path++;
+			break;
+		}
+		--path;
+	} while (path > stdout);
+
+	mp_main_capture_completed(thumb, path);
+}
+
+static void
+process_capture_burst(cairo_surface_t *thumb)
 {
 	time_t rawtime;
 	time(&rawtime);
@@ -306,13 +357,34 @@ process_capture_burst()
 	char timestamp[30];
 	strftime(timestamp, 30, "%Y%m%d%H%M%S", &tim);
 
-	sprintf(capture_fname, "%s/Pictures/IMG%s", getenv("HOME"), timestamp);
+	sprintf(capture_fname,
+		"%s/IMG%s",
+		g_get_user_special_dir(G_USER_DIRECTORY_PICTURES),
+		timestamp);
 
 	// Start post-processing the captured burst
 	g_print("Post process %s to %s.ext\n", burst_dir, capture_fname);
-	char command[1024];
-	sprintf(command, "%s %s %s &", processing_script, burst_dir, capture_fname);
-	system(command);
+	GError *error = NULL;
+	GSubprocess *proc = g_subprocess_new(
+		G_SUBPROCESS_FLAGS_STDOUT_PIPE,
+		&error,
+		processing_script,
+		burst_dir,
+		capture_fname,
+		NULL);
+
+	if (!proc) {
+		g_printerr("Failed to spawn postprocess process: %s\n",
+			   error->message);
+		return;
+	}
+
+	g_subprocess_communicate_utf8_async(
+		proc,
+		NULL,
+		NULL,
+		(GAsyncReadyCallback)post_process_finished,
+		thumb);
 }
 
 static void
@@ -320,7 +392,7 @@ process_image(MPPipeline *pipeline, const MPImage *image)
 {
 	assert(image->width == mode.width && image->height == mode.height);
 
-	process_image_for_preview(image);
+	cairo_surface_t *thumb = process_image_for_preview(image);
 
 	if (captures_remaining > 0) {
 		int count = burst_length - captures_remaining;
@@ -329,10 +401,13 @@ process_image(MPPipeline *pipeline, const MPImage *image)
 		process_image_for_capture(image, count);
 
 		if (captures_remaining == 0) {
-			process_capture_burst();
-
-			mp_main_capture_completed(capture_fname);
+			assert(thumb);
+			process_capture_burst(thumb);
+		} else {
+			assert(!thumb);
 		}
+	} else {
+		assert(!thumb);
 	}
 
 	free(image->data);

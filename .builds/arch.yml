@@ -3,6 +3,7 @@ packages:
   - meson
   - ninja
   - gtk3
+  - zbar
 tasks:
   - build: |
       cd megapixels
@@ -11,5 +12,7 @@ tasks:
   - test: |
       cd megapixels
       ninja -C build test
+sources:
+  - https://git.sr.ht/~martijnbraam/megapixels
 artifacts:
   - megapixels/build/megapixels
