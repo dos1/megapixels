@@ -357,10 +357,23 @@ process_capture_burst(cairo_surface_t *thumb)
 	char timestamp[30];
 	strftime(timestamp, 30, "%Y%m%d%H%M%S", &tim);
 
-	sprintf(capture_fname,
-		"%s/IMG%s",
-		g_get_user_special_dir(G_USER_DIRECTORY_PICTURES),
-		timestamp);
+	if (g_get_user_special_dir(G_USER_DIRECTORY_PICTURES) != NULL) {
+		sprintf(capture_fname,
+			"%s/IMG%s",
+			g_get_user_special_dir(G_USER_DIRECTORY_PICTURES),
+			timestamp);
+	} else if (getenv("XDG_PICTURES_DIR") != NULL) {
+		sprintf(capture_fname,
+			"%s/IMG%s",
+			getenv("XDG_PICTURES_DIR"),
+			timestamp);
+	} else {
+		sprintf(capture_fname,
+			"%s/Pictures/IMG%s",
+			getenv("HOME"),
+			timestamp);
+	}
+
 
 	// Start post-processing the captured burst
 	g_print("Post process %s to %s.ext\n", burst_dir, capture_fname);
@@ -424,6 +437,7 @@ mp_process_pipeline_process_image(MPImage image)
 	// If we haven't processed the previous frame yet, drop this one
 	if (frames_received != frames_processed && !is_capturing) {
 		printf("Dropped frame at capture\n");
+		free(image.data);
 		return;
 	}
 
