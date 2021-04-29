@@ -44,6 +44,31 @@ static int exposure;
 
 static char capture_fname[255];
 
+static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
+    "\002\001\001\000", // fallback
+    "\002\001\001\000",//    "BGGR8",
+    "\001\002\000\001",//    "GBRG8",
+    "\001\000\002\001",//    "GRBG8",
+    "\000\001\001\002",//    "RGGB8",
+    "\002\001\001\000",//    "BGGR10P",
+    "\001\002\000\001",//    "GBRG10P",
+    "\001\000\002\001",//    "GRBG10P",
+    "\000\001\001\002",//    "RGGB10P",
+    "\002\001\001\000",//    "BGGR10",
+    "\001\002\000\001",//    "GBRG10",
+    "\001\000\002\001",//    "GRBG10",
+    "\000\001\001\002",//    "RGGB10",
+    "UYVY",//    does not apply
+    "YUYV",//    does not apply
+};
+
+static const char *
+mp_pixel_format_to_cfa_pattern(uint32_t pixel_format)
+{
+    g_return_val_if_fail(pixel_format < MP_PIXEL_FMT_MAX, "\002\001\001\000");
+    return pixel_format_names[pixel_format];
+}
+
 static void
 register_custom_tiff_tags(TIFF *tif)
 {
@@ -259,10 +284,12 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 	static const short cfapatterndim[] = { 2, 2 };
 	TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfapatterndim);
+
+    const char *cfa_pattern = mp_pixel_format_to_cfa_pattern(image->pixel_format);
 #if (TIFFLIB_VERSION < 20201219) && !LIBTIFF_CFA_PATTERN
-	TIFFSetField(tif, TIFFTAG_CFAPATTERN, "\002\001\001\000"); // BGGR
+    TIFFSetField(tif, TIFFTAG_CFAPATTERN, cfa_pattern);
 #else
-	TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, "\002\001\001\000"); // BGGR
+    TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, cfa_pattern);
 #endif
 	printf("TIFF version %d\n", TIFFLIB_VERSION);
 	if (camera->whitelevel) {
