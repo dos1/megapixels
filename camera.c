@@ -1185,7 +1185,7 @@ mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
 }
 
 static bool
-control_impl_int32(MPCamera *camera, uint32_t id, int request, int32_t *value)
+control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *value)
 {
 	struct v4l2_ext_control ctrl = {};
 	ctrl.id = id;
@@ -1205,11 +1205,36 @@ control_impl_int32(MPCamera *camera, uint32_t id, int request, int32_t *value)
 	return true;
 }
 
+static bool
+control_impl_int32(MPCamera *camera, uint32_t id, unsigned long request, int32_t *value)
+{
+    struct v4l2_control ctrl = {
+        .id = id,
+        .value = *value,
+    };
+
+    if (request == VIDIOC_G_EXT_CTRLS) {
+        request = VIDIOC_G_CTRL;
+    } else if (request == VIDIOC_S_EXT_CTRLS) {
+        request = VIDIOC_S_CTRL;
+    }
+
+    if (xioctl(control_fd(camera), request, &ctrl) == -1) {
+        return false;
+    }
+
+    *value = ctrl.value;
+    return true;
+}
+
+// this wasn't used?
+/*
 bool
 mp_camera_control_try_int32(MPCamera *camera, uint32_t id, int32_t *v)
 {
 	return control_impl_int32(camera, id, VIDIOC_TRY_EXT_CTRLS, v);
 }
+*/
 
 bool
 mp_camera_control_set_int32(MPCamera *camera, uint32_t id, int32_t v)
