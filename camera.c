@@ -1221,7 +1221,7 @@ int32_t
 mp_camera_control_get_int32(MPCamera *camera, uint32_t id)
 {
 	int32_t v = 0;
-    //control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
+	control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
 	return v;
 }
 
@@ -1245,6 +1245,6 @@ bool
 mp_camera_control_get_bool(MPCamera *camera, uint32_t id)
 {
 	int32_t v = false;
-    //control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
+	control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
 	return v;
 }
