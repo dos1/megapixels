@@ -1155,7 +1155,7 @@ mp_control_list_free(MPControlList *list)
 }
 
 bool
-mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
+mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
 {
 	struct v4l2_query_ext_ctrl ctrl = {};
 	ctrl.id = id;
@@ -1183,6 +1183,37 @@ mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
 	}
 	return true;
 }
+
+bool
+mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
+{
+    struct v4l2_queryctrl ctrl = {
+        .id = id,
+    };
+    if (xioctl(control_fd(camera), VIDIOC_QUERYCTRL, &ctrl) == -1) {
+        if (errno != EINVAL) {
+            errno_printerr("VIDIOC_QUERYCTRL");
+        }
+        return false;
+    }
+
+    if (control) {
+        control->id = ctrl.id;
+        control->type = ctrl.type;
+        strcpy(control->name, (const char*)ctrl.name);
+        control->min = ctrl.minimum;
+        control->max = ctrl.maximum;
+        control->step = ctrl.step;
+        control->default_value = ctrl.default_value;
+        control->flags = ctrl.flags;
+        control->element_size = 0;
+        control->element_count = 0;
+        control->dimensions_count = 0;
+        //control->dimensions = skipped cause can't be assigned easily and unused anyway;
+    }
+    return true;
+}
+
 
 static bool
 control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *value)
