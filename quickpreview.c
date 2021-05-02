@@ -36,7 +36,7 @@ void pop_srgb10()
     int i;
 
     for (i=0; i<1024; i++)
-        srgb10[i] = i>>2;
+        srgb10[i] = srgb[i>>2];
 }
 
 static inline uint32_t
