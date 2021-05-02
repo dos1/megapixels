@@ -550,7 +550,9 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 					      sizeof(struct control_state)) != 0;
 	}
 
-	assert(has_changed);
+    if (!has_changed) {
+        printf("Change of controls wasn't accepted");
+    }
 
 	update_process_pipeline();
 }
