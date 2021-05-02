@@ -61,7 +61,7 @@ if [ -n "$DCRAW" ]; then
 	# -o 1		Output in sRGB colorspace
 	# -q 3		Debayer with AHD algorithm
 	# -T		Output TIFF
-	$DCRAW +M -H 4 -o 1 -q 3 -T "$@" "$MAIN_PICTURE.dng"
+	$DCRAW +M -a -H 4 -o 1 -q 3 -T "$@" "$MAIN_PICTURE.dng"
 
 	# If imagemagick is available, convert the tiff to jpeg and apply slight sharpening
 	if [ -n "$CONVERT" ];
