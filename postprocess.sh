@@ -67,9 +67,9 @@ if [ -n "$DCRAW" ]; then
 	if [ -n "$CONVERT" ];
 	then
 		if [ "$CONVERT" = "convert" ]; then
-			convert "$MAIN_PICTURE.$TIFF_EXT" -sharpen 0x1.0 "$TARGET_NAME.jpg"
+			convert "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.jpg"
 		else
-			gm convert "$MAIN_PICTURE.$TIFF_EXT" -sharpen 0x1.0 "$TARGET_NAME.jpg"
+			gm convert "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.jpg"
 		fi
 
 		# If exiftool is installed copy the exif data over from the tiff to the jpeg
