@@ -235,21 +235,16 @@ draw_controls()
 {
 	cairo_t *cr;
 	char iso[6];
-	int temp;
 	char shutterangle[6];
 
 	if (exposure_is_manual) {
-		temp = (int)((float)exposure / (float)camera->capture_mode.height *
-			     360);
-		sprintf(shutterangle, "%d\u00b0", temp);
+		sprintf(shutterangle, "%d", exposure);
 	} else {
 		sprintf(shutterangle, "auto");
 	}
 
 	if (gain_is_manual) {
-		temp = remap(gain - 1, 0, gain_max, camera->iso_min,
-			     camera->iso_max);
-		sprintf(iso, "%d", temp);
+		sprintf(iso, "%d", gain);
 	} else {
 		sprintf(iso, "auto");
 	}
