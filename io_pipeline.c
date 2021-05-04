@@ -32,6 +32,8 @@ struct camera_info {
 	int gain_ctrl;
 	int gain_max;
 
+	int exposure_max;
+
 	bool has_auto_focus_continuous;
 	bool has_auto_focus_start;
 
@@ -215,6 +217,10 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			info->gain_ctrl = V4L2_CID_ANALOGUE_GAIN;
 			info->gain_max = control.max;
 		}
+
+                if (mp_camera_query_control(info->camera, V4L2_CID_EXPOSURE, &control)) {
+			info->exposure_max = control.max;
+		}
 	}
 }
 
@@ -281,6 +287,7 @@ update_process_pipeline()
 		.gain_is_manual = current_controls.gain_is_manual,
 		.gain = current_controls.gain,
 		.gain_max = info->gain_max,
+		.exposure_max = info->exposure_max,
 		.exposure_is_manual = current_controls.exposure_is_manual,
 		.exposure = current_controls.exposure,
 		.has_auto_focus_continuous = info->has_auto_focus_continuous,

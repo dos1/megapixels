@@ -37,6 +37,7 @@ static int gain_max;
 
 static bool exposure_is_manual = false;
 static int exposure;
+static int exposure_max;
 
 static bool has_auto_focus_continuous;
 static bool has_auto_focus_start;
@@ -115,6 +116,7 @@ update_state(const struct mp_main_state *state)
 		if (!exposure_is_manual) {
 			exposure = state->exposure;
 		}
+		exposure_max = state->exposure_max;
 
 		has_auto_focus_continuous = state->has_auto_focus_continuous;
 		has_auto_focus_start = state->has_auto_focus_start;
@@ -538,7 +540,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     !exposure_is_manual);
 			gtk_adjustment_set_lower(control_slider, 1.0);
-			gtk_adjustment_set_upper(control_slider, 360.0);
+			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
 		}
 
@@ -637,8 +639,7 @@ on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
 			break;
 		case USER_CONTROL_SHUTTER: {
 			// So far all sensors use exposure time in number of sensor rows
-			int new_exposure =
-				(int)(value / 360.0 * camera->capture_mode.height);
+			int new_exposure = value;
 			if (new_exposure != exposure) {
 				exposure = new_exposure;
 			}
@@ -666,8 +667,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 		break;
 	case USER_CONTROL_SHUTTER: {
 		// So far all sensors use exposure time in number of sensor rows
-		int new_exposure =
-			(int)(value / 360.0 * camera->capture_mode.height);
+		int new_exposure = value;
 		if (new_exposure != exposure) {
 			exposure = new_exposure;
 			has_changed = true;
