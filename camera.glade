@@ -99,7 +99,7 @@
                     <child>
                       <object class="GtkToggleButton" id="control_auto">
                         <property name="label" translatable="yes">Auto</property>
-                        <property name="visible">True</property>
+                        <property name="visible">False</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
                         <property name="margin_start">10</property>

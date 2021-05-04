@@ -70,6 +70,8 @@ GtkAdjustment *control_slider;
 GtkWidget *control_auto;
 static GtkWidget *camera_missing;
 
+static void draw_controls(void);
+
 int
 remap(int value, int input_min, int input_max, int output_min, int output_max)
 {
@@ -109,6 +111,14 @@ update_state(const struct mp_main_state *state)
 {
 	if (!camera_is_initialized) {
 		camera_is_initialized = true;
+		if (camera == state->camera) {
+			gain = state->gain;
+			gain_max = state->gain_max;
+			exposure = state->exposure;
+			exposure_max = state->exposure_max;
+			has_auto_focus_continuous = state->has_auto_focus_continuous;
+			has_auto_focus_start = state->has_auto_focus_start;
+		}
 	}
 
     if (camera_is_present) {
@@ -120,21 +130,10 @@ update_state(const struct mp_main_state *state)
 	if (camera == state->camera) {
 		mode = state->mode;
 
-		if (!gain_is_manual) {
-			gain = state->gain;
-		}
-		gain_max = state->gain_max;
-
-		if (!exposure_is_manual) {
-			exposure = state->exposure;
-		}
-		exposure_max = state->exposure_max;
-
-		has_auto_focus_continuous = state->has_auto_focus_continuous;
-		has_auto_focus_start = state->has_auto_focus_start;
-
         camera_is_present = state->is_present;
 	}
+
+	draw_controls();
 
 	return false;
 }
@@ -254,17 +253,9 @@ draw_controls()
 	char shutterangle[6];
 	char f[12];
 
-	if (exposure_is_manual) {
-		sprintf(shutterangle, "%d", exposure);
-	} else {
-		sprintf(shutterangle, "auto");
-	}
+	sprintf(shutterangle, "%d", exposure);
 
-	if (gain_is_manual) {
-		sprintf(iso, "%d", gain);
-	} else {
-		sprintf(iso, "auto");
-	}
+	sprintf(iso, "%d", gain);
 
 	sprintf(f, "%d", focus);
 
@@ -565,17 +556,16 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			current_control = USER_CONTROL_ISO;
 			gtk_label_set_text(GTK_LABEL(control_name), "Gain");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
-						     !gain_is_manual);
+						     false);
 			gtk_adjustment_set_lower(control_slider, 0.0);
 			gtk_adjustment_set_upper(control_slider, (float)gain_max);
 			gtk_adjustment_set_value(control_slider, (double)gain);
-
 		} else if (event->x > 50 && event->x < 100) {
 			// Shutter angle
 			current_control = USER_CONTROL_SHUTTER;
 			gtk_label_set_text(GTK_LABEL(control_name), "Exposure");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
-						     !exposure_is_manual);
+						     false);
 			gtk_adjustment_set_lower(control_slider, 1.0);
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
@@ -635,7 +625,11 @@ on_camera_switch_clicked(GtkWidget *widget, gpointer user_data)
 		next_camera = mp_get_camera_config(next_index);
 	}
 
+	gtk_widget_hide(control_box);
 	camera = next_camera;
+	camera_is_initialized = false;
+	gain_is_manual = false;
+	exposure_is_manual = false;
 	update_io_pipeline();
 	draw_controls();
 }
@@ -653,56 +647,6 @@ on_back_clicked(GtkWidget *widget, gpointer user_data)
 }
 
 void
-on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
-{
-	bool is_manual = gtk_toggle_button_get_active(widget) ? false : true;
-	bool has_changed;
-
-	switch (current_control) {
-	case USER_CONTROL_ISO:
-		if (gain_is_manual != is_manual) {
-			gain_is_manual = is_manual;
-			has_changed = true;
-		}
-		break;
-	case USER_CONTROL_SHUTTER:
-		if (exposure_is_manual != is_manual) {
-			exposure_is_manual = is_manual;
-			has_changed = true;
-		}
-		break;
-	case USER_CONTROL_FOCUS:
-		break;
-	}
-
-	if (has_changed) {
-		// The slider might have been moved while Auto mode is active. When entering
-		// Manual mode, first read the slider value to sync with those changes.
-		double value = gtk_adjustment_get_value(control_slider);
-		switch (current_control) {
-		case USER_CONTROL_ISO:
-			if (value != gain) {
-				gain = (int)value;
-			}
-			break;
-		case USER_CONTROL_SHUTTER: {
-			// So far all sensors use exposure time in number of sensor rows
-			int new_exposure = value;
-			if (new_exposure != exposure) {
-				exposure = new_exposure;
-			}
-			break;
-		}
-		case USER_CONTROL_FOCUS:
-			break;
-		}
-
-		update_io_pipeline();
-		draw_controls();
-	}
-}
-
-void
 on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 {
 	double value = gtk_adjustment_get_value(widget);
@@ -711,6 +655,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 	switch (current_control) {
 	case USER_CONTROL_ISO:
 		if (value != gain) {
+			gain_is_manual = true;
 			gain = (int)value;
 			has_changed = true;
 		}
@@ -719,6 +664,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 		// So far all sensors use exposure time in number of sensor rows
 		int new_exposure = value;
 		if (new_exposure != exposure) {
+			exposure_is_manual = true;
 			exposure = new_exposure;
 			has_changed = true;
 		}
@@ -809,8 +755,6 @@ main(int argc, char *argv[])
 					       GDK_POINTER_MOTION_MASK);
 	g_signal_connect(preview, "button-press-event", G_CALLBACK(on_preview_tap),
 			 NULL);
-	g_signal_connect(control_auto, "toggled",
-			 G_CALLBACK(on_control_auto_toggled), NULL);
 	g_signal_connect(control_slider, "value-changed",
 			 G_CALLBACK(on_control_slider_changed), NULL);
 
@@ -843,6 +787,8 @@ main(int argc, char *argv[])
 
 	camera = mp_get_camera_config(0);
 	update_io_pipeline();
+
+	draw_controls();
 
 	gtk_widget_show(window);
 	gtk_main();
