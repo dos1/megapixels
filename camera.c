@@ -155,16 +155,16 @@ mp_pixel_format_width_to_colors(MPPixelFormat pixel_format, uint32_t width)
 	case MP_PIXEL_FMT_GBRG8:
 	case MP_PIXEL_FMT_GRBG8:
 	case MP_PIXEL_FMT_RGGB8:
+	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG10:
+	case MP_PIXEL_FMT_GRBG10:
+	case MP_PIXEL_FMT_RGGB10:
 		return width / 2;
 	case MP_PIXEL_FMT_BGGR10P:
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
 		return width / 2 * 5;
-	case MP_PIXEL_FMT_BGGR10:
-	case MP_PIXEL_FMT_GBRG10:
-	case MP_PIXEL_FMT_GRBG10:
-	case MP_PIXEL_FMT_RGGB10:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return width;
