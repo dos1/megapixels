@@ -16,6 +16,7 @@ struct mp_main_state {
 
 	bool exposure_is_manual;
 	int exposure;
+	int exposure_max;
 
 	bool has_auto_focus_continuous;
 	bool has_auto_focus_start;

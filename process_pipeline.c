@@ -41,6 +41,7 @@ static int gain_max;
 
 static bool exposure_is_manual;
 static int exposure;
+static int exposure_max;
 
 static char capture_fname[255];
 
@@ -516,6 +517,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 
 	exposure_is_manual = state->exposure_is_manual;
 	exposure = state->exposure;
+	exposure_max = state->exposure_max;
 
 	struct mp_main_state main_state = {
 		.camera = camera,
@@ -525,6 +527,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 		.gain_max = gain_max,
 		.exposure_is_manual = exposure_is_manual,
 		.exposure = exposure,
+		.exposure_max = exposure_max,
 		.has_auto_focus_continuous = state->has_auto_focus_continuous,
 		.has_auto_focus_start = state->has_auto_focus_start,
 	};
