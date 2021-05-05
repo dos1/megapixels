@@ -138,16 +138,16 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR8:
-				color = pack_rgb(b3, b1, b0);
+				color = pack_rgb(b3, (b1 + b2) / 2, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG8:
-				color = pack_rgb(b2, b0, b1);
+				color = pack_rgb(b2, (b0 + b3) / 2, b1);
 				break;
 			case MP_PIXEL_FMT_GRBG8:
-				color = pack_rgb(b1, b0, b2);
+				color = pack_rgb(b1, (b0 + b3) / 2, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB8:
-				color = pack_rgb(b0, b1, b3);
+				color = pack_rgb(b0, (b1 + b2) / 2, b3);
 				break;
 			default:
 				assert(false);
@@ -193,16 +193,16 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR10P:
-				color = pack_rgb(b3, b1, b0);
+				color = pack_rgb(b3, (b1 + b2) / 2, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG10P:
-				color = pack_rgb(b2, b0, b1);
+				color = pack_rgb(b2, (b0 + b3) / 2, b1);
 				break;
 			case MP_PIXEL_FMT_GRBG10P:
-				color = pack_rgb(b1, b0, b2);
+				color = pack_rgb(b1, (b0 + b3) / 2, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB10P:
-				color = pack_rgb(b0, b1, b3);
+				color = pack_rgb(b0, (b1 + b2) / 2, b3);
 				break;
 			default:
 				assert(false);
@@ -256,16 +256,16 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR10:
-				color = pack_rgb(b3, b1, b0);
+				color = pack_rgb(b3, (b1 + b2) / 2, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG10:
-				color = pack_rgb(b2, b0, b1);
+				color = pack_rgb(b2, (b0 + b3) / 2, b1);
 				break;
 			case MP_PIXEL_FMT_GRBG10:
-				color = pack_rgb(b1, b0, b2);
+				color = pack_rgb(b1, (b0 + b3) / 2, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB10:
-				color = pack_rgb(b0, b1, b3);
+				color = pack_rgb(b0, (b1 + b2) / 2, b3);
 				break;
 			default:
 				assert(false);
