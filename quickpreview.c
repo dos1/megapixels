@@ -132,12 +132,13 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 
 			uint8_t b0 = srgb[src[src_i] - blacklevel];
 			uint8_t b1 = srgb[src[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb[src[src_i + src_width + 1] - blacklevel];
+			uint8_t b2 = srgb[src[src_i + src_width] - blacklevel];
+			uint8_t b3 = srgb[src[src_i + src_width + 1] - blacklevel];
 
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR8:
-				color = pack_rgb(b2, b1, b0);
+				color = pack_rgb(b3, b1, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG8:
 				color = pack_rgb(b2, b0, b1);
@@ -146,7 +147,7 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 				color = pack_rgb(b1, b0, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB8:
-				color = pack_rgb(b0, b1, b2);
+				color = pack_rgb(b0, b1, b3);
 				break;
 			default:
 				assert(false);
@@ -186,12 +187,13 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 
 			uint8_t b0 = srgb[src[src_i] - blacklevel];
 			uint8_t b1 = srgb[src[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb[src[src_i + width_bytes + 1] - blacklevel];
+			uint8_t b2 = srgb[src[src_i + width_bytes] - blacklevel];
+			uint8_t b3 = srgb[src[src_i + width_bytes + 1] - blacklevel];
 
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR10P:
-				color = pack_rgb(b2, b1, b0);
+				color = pack_rgb(b3, b1, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG10P:
 				color = pack_rgb(b2, b0, b1);
@@ -200,7 +202,7 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 				color = pack_rgb(b1, b0, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB10P:
-				color = pack_rgb(b0, b1, b2);
+				color = pack_rgb(b0, b1, b3);
 				break;
 			default:
 				assert(false);
@@ -248,12 +250,13 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
     
 			uint8_t b0 = srgb10[src16[src_i] - blacklevel];
 			uint8_t b1 = srgb10[src16[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb10[src16[src_i + src_width + 1] - blacklevel];
+			uint8_t b2 = srgb10[src16[src_i + src_width] - blacklevel];
+			uint8_t b3 = srgb10[src16[src_i + src_width + 1] - blacklevel];
 
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR10:
-				color = pack_rgb(b2, b1, b0);
+				color = pack_rgb(b3, b1, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG10:
 				color = pack_rgb(b2, b0, b1);
@@ -262,7 +265,7 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 				color = pack_rgb(b1, b0, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB10:
-				color = pack_rgb(b0, b1, b2);
+				color = pack_rgb(b0, b1, b3);
 				break;
 			default:
 				assert(false);
