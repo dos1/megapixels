@@ -553,14 +553,11 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 
 	// Handle taps on the controls
 	if (event->y < 32) {
-		if (gtk_widget_is_visible(control_box)) {
-			gtk_widget_hide(control_box);
-			return;
-		} else {
-			gtk_widget_show(control_box);
-		}
-
 		if (event->x < 50) {
+			if (current_control == USER_CONTROL_ISO && gtk_widget_is_visible(control_box)) {
+				gtk_widget_hide(control_box);
+				return;
+			}
 			// ISO
 			current_control = USER_CONTROL_ISO;
 			gtk_label_set_text(GTK_LABEL(control_name), "Gain");
@@ -571,6 +568,10 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_value(control_slider, (double)gain);
 
 		} else if (event->x > 50 && event->x < 100) {
+			if (current_control == USER_CONTROL_SHUTTER && gtk_widget_is_visible(control_box)) {
+				gtk_widget_hide(control_box);
+				return;
+			}
 			// Shutter angle
 			current_control = USER_CONTROL_SHUTTER;
 			gtk_label_set_text(GTK_LABEL(control_name), "Exposure");
@@ -580,6 +581,10 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
 		} else if (event->x > 100 && event->x < 150 && camera->hasfocus) {
+			if (current_control == USER_CONTROL_FOCUS && gtk_widget_is_visible(control_box)) {
+				gtk_widget_hide(control_box);
+				return;
+			}
 			current_control = USER_CONTROL_FOCUS;
 			gtk_label_set_text(GTK_LABEL(control_name), "Focus");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
@@ -588,6 +593,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_upper(control_slider, 16383);
 			gtk_adjustment_set_value(control_slider, (double)focus);
 		}
+		gtk_widget_show(control_box);
 
 		return;
 	}
