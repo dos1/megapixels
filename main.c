@@ -279,11 +279,11 @@ draw_controls()
 	cairo_set_source_rgba(cr, 0, 0, 0, 1);
 
 	cairo_move_to(cr, 16, 16);
-	cairo_text_path(cr, "ISO");
+	cairo_text_path(cr, "Gain");
 	cairo_stroke(cr);
 
 	cairo_move_to(cr, 60, 16);
-	cairo_text_path(cr, "Shutter");
+	cairo_text_path(cr, "Exposure");
 	cairo_stroke(cr);
 
 	if (camera->hasfocus) {
@@ -295,9 +295,9 @@ draw_controls()
 	// Draw the fill for the headings
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, 16, 16);
-	cairo_show_text(cr, "ISO");
+	cairo_show_text(cr, "Gain");
 	cairo_move_to(cr, 60, 16);
-	cairo_show_text(cr, "Shutter");
+	cairo_show_text(cr, "Exposure");
 	if (camera->hasfocus) {
 		cairo_move_to(cr, 104, 16);
 		cairo_show_text(cr, "Focus");
@@ -551,7 +551,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 		if (event->x < 50) {
 			// ISO
 			current_control = USER_CONTROL_ISO;
-			gtk_label_set_text(GTK_LABEL(control_name), "ISO");
+			gtk_label_set_text(GTK_LABEL(control_name), "Gain");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     !gain_is_manual);
 			gtk_adjustment_set_lower(control_slider, 0.0);
@@ -561,7 +561,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 		} else if (event->x > 50 && event->x < 100) {
 			// Shutter angle
 			current_control = USER_CONTROL_SHUTTER;
-			gtk_label_set_text(GTK_LABEL(control_name), "Shutter");
+			gtk_label_set_text(GTK_LABEL(control_name), "Exposure");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     !exposure_is_manual);
 			gtk_adjustment_set_lower(control_slider, 1.0);
