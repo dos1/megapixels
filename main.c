@@ -286,9 +286,11 @@ draw_controls()
 	cairo_text_path(cr, "Shutter");
 	cairo_stroke(cr);
 
-	cairo_move_to(cr, 104, 16);
-	cairo_text_path(cr, "Focus");
-	cairo_stroke(cr);
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 16);
+		cairo_text_path(cr, "Focus");
+		cairo_stroke(cr);
+	}
 
 	// Draw the fill for the headings
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
@@ -296,8 +298,10 @@ draw_controls()
 	cairo_show_text(cr, "ISO");
 	cairo_move_to(cr, 60, 16);
 	cairo_show_text(cr, "Shutter");
-	cairo_move_to(cr, 104, 16);
-	cairo_show_text(cr, "Focus");
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 16);
+		cairo_show_text(cr, "Focus");
+	}
 
 	// Draw the outlines for the values
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
@@ -313,9 +317,11 @@ draw_controls()
 	cairo_text_path(cr, shutterangle);
 	cairo_stroke(cr);
 
-	cairo_move_to(cr, 104, 26);
-	cairo_text_path(cr, f);
-	cairo_stroke(cr);
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 26);
+		cairo_text_path(cr, f);
+		cairo_stroke(cr);
+	}
 
 	// Draw the fill for the values
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
@@ -323,8 +329,10 @@ draw_controls()
 	cairo_show_text(cr, iso);
 	cairo_move_to(cr, 60, 26);
 	cairo_show_text(cr, shutterangle);
-	cairo_move_to(cr, 104, 26);
-	cairo_show_text(cr, f);
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 26);
+		cairo_show_text(cr, f);
+	}
 
 	cairo_destroy(cr);
 
@@ -559,7 +567,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_lower(control_slider, 1.0);
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
-		} else if (event->x > 100 && event->x < 150) {
+		} else if (event->x > 100 && event->x < 150 && camera->hasfocus) {
 			current_control = USER_CONTROL_FOCUS;
 			gtk_label_set_text(GTK_LABEL(control_name), "Focus");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
@@ -617,6 +625,7 @@ on_camera_switch_clicked(GtkWidget *widget, gpointer user_data)
 
 	camera = next_camera;
 	update_io_pipeline();
+	draw_controls();
 }
 
 void

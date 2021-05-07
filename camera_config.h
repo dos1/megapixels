@@ -27,6 +27,8 @@ struct mp_camera_config {
 	int rotate;
 	bool mirrored;
 
+	bool hasfocus;
+
 	struct mp_media_link_config media_links[MP_MAX_LINKS];
 	int num_media_links;
 
