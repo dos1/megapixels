@@ -120,7 +120,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		if (!info->device) {
 			g_printerr("Could not find /dev/media* node matching '%s'\n",
                    info->media_dev_name);
-			exit(EXIT_FAILURE);
+			return;
 		}
 
 		const struct media_v2_entity *entity =
@@ -218,7 +218,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			info->gain_max = control.max;
 		}
 
-                if (mp_camera_query_control(info->camera, V4L2_CID_EXPOSURE, &control)) {
+		if (mp_camera_query_control(info->camera, V4L2_CID_EXPOSURE, &control)) {
 			info->exposure_max = control.max;
 		}
 	}
@@ -281,6 +281,7 @@ update_process_pipeline()
 	struct mp_process_pipeline_state pipeline_state = {
 		.camera = camera,
 		.mode = mode,
+		.is_present = !!info->camera,
 		.burst_length = burst_length,
 		.preview_width = preview_width,
 		.preview_height = preview_height,
@@ -313,6 +314,9 @@ capture(MPPipeline *pipeline, const void *data)
 {
 	struct camera_info *info = &cameras[camera->index];
 
+    if (!info->camera) {
+        return;
+    }
 	captures_remaining = burst_length;
 
 	// Disable the autogain/exposure while taking the burst
@@ -507,33 +511,37 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 
 		camera = state->camera;
 
-		if (camera) {
+        if (camera) {
 			struct camera_info *info = &cameras[camera->index];
-			struct device_info *dev_info = &devices[info->device_index];
+            struct device_info *dev_info = &devices[info->device_index];
 
-			mp_device_setup_link(dev_info->device, info->pad_id,
-					     dev_info->interface_pad_id, true);
+            if (!dev_info->device) {
+                return;
+            }
 
-			mode = camera->preview_mode;
-			mp_camera_set_mode(info->camera, &mode);
+            mp_device_setup_link(dev_info->device, info->pad_id,
+                         dev_info->interface_pad_id, true);
 
-			mp_camera_start_capture(info->camera);
-			capture_source = mp_pipeline_add_capture_source(
-				pipeline, info->camera, on_frame, NULL);
+            mode = camera->preview_mode;
+            mp_camera_set_mode(info->camera, &mode);
 
-			current_controls.gain_is_manual =
-				mp_camera_control_get_int32(
-					info->camera, V4L2_CID_EXPOSURE_AUTO) ==
-				V4L2_EXPOSURE_MANUAL;
-			current_controls.gain = mp_camera_control_get_int32(
-				info->camera, info->gain_ctrl);
+            mp_camera_start_capture(info->camera);
+            capture_source = mp_pipeline_add_capture_source(
+                pipeline, info->camera, on_frame, NULL);
 
-			current_controls.exposure_is_manual =
-				mp_camera_control_get_bool(info->camera,
-							   V4L2_CID_AUTOGAIN) == 0;
-			current_controls.exposure = mp_camera_control_get_int32(
-				info->camera, V4L2_CID_EXPOSURE);
-		}
+            current_controls.gain_is_manual =
+                mp_camera_control_get_int32(
+                    info->camera, V4L2_CID_EXPOSURE_AUTO) ==
+                V4L2_EXPOSURE_MANUAL;
+            current_controls.gain = mp_camera_control_get_int32(
+                info->camera, info->gain_ctrl);
+
+            current_controls.exposure_is_manual =
+                mp_camera_control_get_bool(info->camera,
+                               V4L2_CID_AUTOGAIN) == 0;
+            current_controls.exposure = mp_camera_control_get_int32(
+                info->camera, V4L2_CID_EXPOSURE);
+        }
 	}
 
 	has_changed = has_changed || burst_length != state->burst_length ||

@@ -9,6 +9,7 @@
 struct mp_main_state {
 	const struct mp_camera_config *camera;
 	MPCameraMode mode;
+    bool is_present;
 
 	bool gain_is_manual;
 	int gain;

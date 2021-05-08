@@ -522,6 +522,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 	struct mp_main_state main_state = {
 		.camera = camera,
 		.mode = mode,
+        .is_present = state->is_present,
 		.gain_is_manual = state->gain_is_manual,
 		.gain = gain,
 		.gain_max = gain_max,

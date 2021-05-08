@@ -26,6 +26,7 @@
 enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER };
 
 static bool camera_is_initialized = false;
+static bool camera_is_present = false;
 static const struct mp_camera_config *camera = NULL;
 static MPCameraMode mode;
 
@@ -65,6 +66,7 @@ GtkWidget *control_box;
 GtkWidget *control_name;
 GtkAdjustment *control_slider;
 GtkWidget *control_auto;
+static GtkWidget *camera_missing;
 
 int
 remap(int value, int input_min, int input_max, int output_min, int output_max)
@@ -106,6 +108,12 @@ update_state(const struct mp_main_state *state)
 		camera_is_initialized = true;
 	}
 
+    if (camera_is_present) {
+        gtk_widget_hide(camera_missing);
+    } else {
+        gtk_widget_show(camera_missing);
+    }
+
 	if (camera == state->camera) {
 		mode = state->mode;
 
@@ -121,6 +129,8 @@ update_state(const struct mp_main_state *state)
 
 		has_auto_focus_continuous = state->has_auto_focus_continuous;
 		has_auto_focus_start = state->has_auto_focus_start;
+
+        camera_is_present = state->is_present;
 	}
 
 	return false;
@@ -318,7 +328,7 @@ draw_controls()
 static gboolean
 preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-	if (!camera_is_initialized) {
+    if (!camera_is_initialized) {
 		return FALSE;
 	}
 
@@ -728,6 +738,7 @@ main(int argc, char *argv[])
 	control_slider =
 		GTK_ADJUSTMENT(gtk_builder_get_object(builder, "control_adj"));
 	control_auto = GTK_WIDGET(gtk_builder_get_object(builder, "control_auto"));
+    camera_missing = GTK_WIDGET(gtk_builder_get_object(builder, "camera_missing"));
     g_signal_connect(window, "destroy", G_CALLBACK(on_quit), NULL);
 	g_signal_connect(shutter, "clicked", G_CALLBACK(on_shutter_clicked), NULL);
 	g_signal_connect(error_close, "clicked", G_CALLBACK(on_error_close_clicked),
