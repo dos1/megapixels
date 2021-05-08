@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include <cairo/cairo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/videodev2.h>
