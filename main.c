@@ -22,7 +22,7 @@
 #include "quickpreview.h"
 #include "io_pipeline.h"
 
-enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER };
+enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER, USER_CONTROL_FOCUS };
 
 static bool camera_is_initialized = false;
 static const struct mp_camera_config *camera = NULL;
@@ -38,6 +38,8 @@ static int gain_max;
 static bool exposure_is_manual = false;
 static int exposure;
 static int exposure_max;
+
+static int focus;
 
 static bool has_auto_focus_continuous;
 static bool has_auto_focus_start;
@@ -238,6 +240,7 @@ draw_controls()
 	cairo_t *cr;
 	char iso[6];
 	char shutterangle[6];
+	char f[12];
 
 	if (exposure_is_manual) {
 		sprintf(shutterangle, "%d", exposure);
@@ -250,6 +253,8 @@ draw_controls()
 	} else {
 		sprintf(iso, "auto");
 	}
+
+	sprintf(f, "%d", focus);
 
 	if (status_surface)
 		cairo_surface_destroy(status_surface);
@@ -281,12 +286,22 @@ draw_controls()
 	cairo_text_path(cr, "Shutter");
 	cairo_stroke(cr);
 
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 16);
+		cairo_text_path(cr, "Focus");
+		cairo_stroke(cr);
+	}
+
 	// Draw the fill for the headings
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, 16, 16);
 	cairo_show_text(cr, "ISO");
 	cairo_move_to(cr, 60, 16);
 	cairo_show_text(cr, "Shutter");
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 16);
+		cairo_show_text(cr, "Focus");
+	}
 
 	// Draw the outlines for the values
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
@@ -302,12 +317,22 @@ draw_controls()
 	cairo_text_path(cr, shutterangle);
 	cairo_stroke(cr);
 
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 26);
+		cairo_text_path(cr, f);
+		cairo_stroke(cr);
+	}
+
 	// Draw the fill for the values
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, 16, 26);
 	cairo_show_text(cr, iso);
 	cairo_move_to(cr, 60, 26);
 	cairo_show_text(cr, shutterangle);
+	if (camera->hasfocus) {
+		cairo_move_to(cr, 104, 26);
+		cairo_show_text(cr, f);
+	}
 
 	cairo_destroy(cr);
 
@@ -523,7 +548,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_widget_show(control_box);
 		}
 
-		if (event->x < 60) {
+		if (event->x < 50) {
 			// ISO
 			current_control = USER_CONTROL_ISO;
 			gtk_label_set_text(GTK_LABEL(control_name), "ISO");
@@ -533,7 +558,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_upper(control_slider, (float)gain_max);
 			gtk_adjustment_set_value(control_slider, (double)gain);
 
-		} else if (event->x > 60 && event->x < 120) {
+		} else if (event->x > 50 && event->x < 100) {
 			// Shutter angle
 			current_control = USER_CONTROL_SHUTTER;
 			gtk_label_set_text(GTK_LABEL(control_name), "Shutter");
@@ -542,6 +567,14 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_lower(control_slider, 1.0);
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
+		} else if (event->x > 100 && event->x < 150 && camera->hasfocus) {
+			current_control = USER_CONTROL_FOCUS;
+			gtk_label_set_text(GTK_LABEL(control_name), "Focus");
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
+						     false);
+			gtk_adjustment_set_lower(control_slider, 0.0);
+			gtk_adjustment_set_upper(control_slider, 16383);
+			gtk_adjustment_set_value(control_slider, (double)focus);
 		}
 
 		return;
@@ -592,6 +625,7 @@ on_camera_switch_clicked(GtkWidget *widget, gpointer user_data)
 
 	camera = next_camera;
 	update_io_pipeline();
+	draw_controls();
 }
 
 void
@@ -625,6 +659,8 @@ on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
 			has_changed = true;
 		}
 		break;
+	case USER_CONTROL_FOCUS:
+		break;
 	}
 
 	if (has_changed) {
@@ -645,6 +681,8 @@ on_control_auto_toggled(GtkToggleButton *widget, gpointer user_data)
 			}
 			break;
 		}
+		case USER_CONTROL_FOCUS:
+			break;
 		}
 
 		update_io_pipeline();
@@ -674,6 +712,15 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 		}
 		break;
 	}
+	case USER_CONTROL_FOCUS:
+		if (value != focus) {
+			focus = (int)value;
+			has_changed = true;
+			char buf[42] = {};
+			snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(focus >> 8), (uint8_t)(focus & 0xff));
+			g_spawn_command_line_async(buf, NULL);
+		}
+		break;
 	}
 
 	if (has_changed) {
