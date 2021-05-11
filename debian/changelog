@@ -1,3 +1,17 @@
+megapixels (0.16.0-1) experimental; urgency=medium
+
+  * New upstream release 0.16.0
+
+ -- Federico Ceratto <federico@debian.org>  Wed, 28 Apr 2021 19:24:15 +0100
+
+megapixels (0.15.0-1) experimental; urgency=medium
+
+  * New upstream release 0.15.0
+  * d/control: Add libzbar-dev dependency
+  * d/patches: Remove upstreamed patch
+
+ -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Wed, 03 Mar 2021 00:51:32 +0100
+
 megapixels (0.13.1-2) unstable; urgency=medium
 
   [ Arnaud Ferraris ]
