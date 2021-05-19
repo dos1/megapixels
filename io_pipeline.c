@@ -309,6 +309,16 @@ mp_io_pipeline_focus()
 	mp_pipeline_invoke(pipeline, focus, NULL, 0);
 }
 
+static bool
+camera_mode_equals(const MPCameraMode *mode1, const MPCameraMode *mode2)
+{
+	return (mode1->frame_interval.numerator == mode2->frame_interval.numerator &&
+	        mode1->frame_interval.denominator == mode2->frame_interval.denominator &&
+	        mode1->pixel_format == mode2->pixel_format &&
+	        mode1->width == mode2->width &&
+	        mode1->height == mode2->height);
+}
+
 static void
 capture(MPPipeline *pipeline, const void *data)
 {
@@ -325,13 +335,15 @@ capture(MPPipeline *pipeline, const void *data)
 				    V4L2_EXPOSURE_MANUAL);
 
 	// Change camera mode for capturing
-	mp_camera_stop_capture(info->camera);
+	if (!camera_mode_equals(&camera->capture_mode, &camera->preview_mode)) {
+		mp_camera_stop_capture(info->camera);
 
-	mode = camera->capture_mode;
-	mp_camera_set_mode(info->camera, &mode);
-	just_switched_mode = true;
+		mode = camera->capture_mode;
+		mp_camera_set_mode(info->camera, &mode);
+		just_switched_mode = true;
 
-	mp_camera_start_capture(info->camera);
+		mp_camera_start_capture(info->camera);
+	}
 
 	update_process_pipeline();
 
@@ -472,13 +484,15 @@ on_frame(MPImage image, void *data)
 			}
 
 			// Go back to preview mode
-			mp_camera_stop_capture(info->camera);
+			if (!camera_mode_equals(&camera->capture_mode, &camera->preview_mode)) {
+				mp_camera_stop_capture(info->camera);
 
-			mode = camera->preview_mode;
-			mp_camera_set_mode(info->camera, &mode);
-			just_switched_mode = true;
+				mode = camera->preview_mode;
+				mp_camera_set_mode(info->camera, &mode);
+				just_switched_mode = true;
 
-			mp_camera_start_capture(info->camera);
+				mp_camera_start_capture(info->camera);
+			}
 
 			update_process_pipeline();
 		}
