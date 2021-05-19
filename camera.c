@@ -576,6 +576,9 @@ error:
 bool
 mp_camera_stop_capture(MPCamera *camera)
 {
+    if (!camera) {
+        return false;
+    }
 	g_return_val_if_fail(camera->num_buffers > 0, false);
 
 	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -633,7 +636,6 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 			/* fallthrough */
 		default:
 			errno_printerr("VIDIOC_DQBUF");
-            exit(1);
 			return false;
 		}
 	}
@@ -1277,6 +1279,9 @@ int32_t
 mp_camera_control_get_int32(MPCamera *camera, uint32_t id)
 {
 	int32_t v = 0;
+    if (!camera) {
+        return 0;
+    }
 	control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
 	return v;
 }
