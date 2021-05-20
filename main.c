@@ -99,6 +99,7 @@ update_io_pipeline()
 		.gain = gain,
 		.exposure_is_manual = exposure_is_manual,
 		.exposure = exposure,
+		.focus = focus,
 	};
 	mp_io_pipeline_update_state(&io_state);
 }

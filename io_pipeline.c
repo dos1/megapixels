@@ -83,6 +83,8 @@ struct control_state {
 
 	bool exposure_is_manual;
 	int exposure;
+
+	int focus;
 };
 
 static struct control_state desired_controls = {};
@@ -293,6 +295,7 @@ update_process_pipeline()
 		.exposure = current_controls.exposure,
 		.has_auto_focus_continuous = info->has_auto_focus_continuous,
 		.has_auto_focus_start = info->has_auto_focus_start,
+		.focus = current_controls.focus,
 	};
 	mp_process_pipeline_update_state(&pipeline_state);
 }
@@ -332,6 +335,13 @@ capture(MPPipeline *pipeline, const void *data)
 	just_switched_mode = true;
 
 	mp_camera_start_capture(info->camera);
+	if (camera->hasfocus){
+		// Workaround: streamon is the call which wakes up the camera from sleep.
+		// Most changes get applied now using controls, but focus isn't yet one.
+		char buf[42] = {};
+		snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(desired_controls.focus >> 8), (uint8_t)(desired_controls.focus & 0xff));
+		g_spawn_command_line_async(buf, NULL);
+	}
 
 	update_process_pipeline();
 
@@ -403,6 +413,11 @@ update_controls()
 	    current_controls.exposure != desired_controls.exposure) {
 		mp_camera_control_set_int32(info->camera, V4L2_CID_EXPOSURE,
 					    desired_controls.exposure);
+	}
+
+	if (current_controls.focus != desired_controls.focus) {
+		// TODO: fill in once focus is a control
+		//    printf("new focus %d %d \n", current_controls.focus, desired_controls.focus);
 	}
 
 	current_controls = desired_controls;
@@ -480,6 +495,15 @@ on_frame(MPImage image, void *data)
 
 			mp_camera_start_capture(info->camera);
 
+			if (camera->hasfocus){
+				printf("preview mode, set focus\n");
+				// Workaround: streamon is the call which wakes up the camera from sleep.
+				// Most changes get applied now using controls, but focus isn't yet one.
+				char buf[42] = {};
+				snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(desired_controls.focus >> 8), (uint8_t)(desired_controls.focus & 0xff));
+				g_spawn_command_line_async(buf, NULL);
+			}
+
 			update_process_pipeline();
 		}
 	}
@@ -548,12 +572,13 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
                                V4L2_CID_AUTOGAIN) == 0;
             current_controls.exposure = mp_camera_control_get_int32(
                 info->camera, V4L2_CID_EXPOSURE);
+			// current_controls.focus = TODO: FILL IN once focus is a contol
         }
 	}
 
 	has_changed = has_changed || burst_length != state->burst_length ||
-		      preview_width != state->preview_width ||
-		      preview_height != state->preview_height;
+		preview_width != state->preview_width ||
+		preview_height != state->preview_height;
 
 	burst_length = state->burst_length;
 	preview_width = state->preview_width;
@@ -566,6 +591,7 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 		desired_controls.gain = state->gain;
 		desired_controls.exposure_is_manual = state->exposure_is_manual;
 		desired_controls.exposure = state->exposure;
+		desired_controls.focus = state->focus;
 
 		has_changed =
 			has_changed || memcmp(&previous_desired, &desired_controls,

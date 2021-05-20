@@ -15,6 +15,8 @@ struct mp_io_pipeline_state {
 
 	bool exposure_is_manual;
 	int exposure;
+
+	int focus;
 };
 
 void mp_io_pipeline_start();

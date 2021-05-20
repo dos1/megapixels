@@ -21,6 +21,7 @@ struct mp_main_state {
 
 	bool has_auto_focus_continuous;
 	bool has_auto_focus_start;
+	int focus;
 };
 
 void mp_main_update_state(const struct mp_main_state *state);
