@@ -124,16 +124,20 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 		    const bool mirrored, const float *colormatrix,
 		    const uint8_t blacklevel, const uint32_t skip)
 {
+	uint8_t table[255] = {0};
+	for (int i=blacklevel; i <= 255; i++) {
+		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
+	}
 	uint32_t src_y = 0, dst_y = 0;
 	while (src_y < src_height) {
 		uint32_t src_x = 0, dst_x = 0;
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
 
-			uint8_t b0 = srgb[src[src_i] - blacklevel];
-			uint8_t b1 = srgb[src[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb[src[src_i + src_width] - blacklevel];
-			uint8_t b3 = srgb[src[src_i + src_width + 1] - blacklevel];
+			uint8_t b0 = table[src[src_i]];
+			uint8_t b1 = table[src[src_i + 1]];
+			uint8_t b2 = table[src[src_i + src_width]];
+			uint8_t b3 = table[src[src_i + src_width + 1]];
 
 			uint32_t color;
 			switch (format) {
@@ -175,6 +179,11 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		     const bool mirrored, const float *colormatrix,
 		     const uint8_t blacklevel, const uint32_t skip)
 {
+	uint8_t table[255] = {0};
+	for (int i=blacklevel; i <= 255; i++) {
+		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
+	}
+
 	assert(src_width % 2 == 0);
 
 	uint32_t width_bytes = mp_pixel_format_width_to_bytes(format, src_width);
@@ -185,10 +194,10 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		while (src_x < width_bytes) {
 			uint32_t src_i = src_y * width_bytes + src_x;
 
-			uint8_t b0 = srgb[src[src_i] - blacklevel];
-			uint8_t b1 = srgb[src[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb[src[src_i + width_bytes] - blacklevel];
-			uint8_t b3 = srgb[src[src_i + width_bytes + 1] - blacklevel];
+			uint8_t b0 = table[src[src_i]];
+			uint8_t b1 = table[src[src_i + 1]];
+			uint8_t b2 = table[src[src_i + width_bytes]];
+			uint8_t b3 = table[src[src_i + width_bytes + 1]];
 
 			uint32_t color;
 			switch (format) {
@@ -238,6 +247,11 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 	assert(src_width % 2 == 0);
     uint16_t *src16 = (uint16_t *)src;
 
+	uint8_t table[1023] = {0};
+	for (int i=blacklevel; i <= 1023; i++) {
+		table[i] = srgb10[i - (blacklevel * (1023 - i) / (1023 - blacklevel))];
+	}
+
 #ifdef NO
 	g_printerr("MPCamera: dst %d:%d src %d:%d skip: %d blacklevel %d\n", dst_width, dst_height, src_width, src_height, skip, blacklevel);
 #endif
@@ -248,10 +262,10 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
     
-			uint8_t b0 = srgb10[src16[src_i] - blacklevel];
-			uint8_t b1 = srgb10[src16[src_i + 1] - blacklevel];
-			uint8_t b2 = srgb10[src16[src_i + src_width] - blacklevel];
-			uint8_t b3 = srgb10[src16[src_i + src_width + 1] - blacklevel];
+			uint8_t b0 = table[src16[src_i]];
+			uint8_t b1 = table[src16[src_i + 1]];
+			uint8_t b2 = table[src16[src_i + src_width]];
+			uint8_t b3 = table[src16[src_i + src_width + 1]];
 
 			uint32_t color;
 			switch (format) {
