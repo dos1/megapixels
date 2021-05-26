@@ -22,6 +22,7 @@ struct mp_process_pipeline_state {
 
 	bool has_auto_focus_continuous;
 	bool has_auto_focus_start;
+	int focus;
 };
 
 void mp_process_pipeline_start();

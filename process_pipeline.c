@@ -464,7 +464,7 @@ mp_process_pipeline_process_image(MPImage image)
 {
 	// If we haven't processed the previous frame yet, drop this one
 	if (frames_received != frames_processed && !is_capturing) {
-		printf("Dropped frame at capture\n");
+		//printf("Dropped frame at capture\n");
 		free(image.data);
 		return;
 	}
@@ -531,6 +531,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 		.exposure_max = exposure_max,
 		.has_auto_focus_continuous = state->has_auto_focus_continuous,
 		.has_auto_focus_start = state->has_auto_focus_start,
+		.focus = state->focus,
 	};
 	mp_main_update_state(&main_state);
 }
