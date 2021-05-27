@@ -279,7 +279,7 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
 	TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, image->width);
 	TIFFSetField(tif, TIFFTAG_IMAGELENGTH, image->height);
-	TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+	TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, mp_pixel_format_bits_per_pixel(image->pixel_format));
 	TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
 	TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -302,11 +302,9 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFCheckpointDirectory(tif);
 	printf("Writing frame to %s\n", fname);
 
-	unsigned char *pLine = (unsigned char *)malloc(image->width);
 	for (int row = 0; row < image->height; row++) {
-		TIFFWriteScanline(tif, image->data + (row * image->width), row, 0);
+		TIFFWriteScanline(tif, image->data + (row * mp_pixel_format_width_to_bytes(image->pixel_format, image->width)), row, 0);
 	}
-	free(pLine);
 	TIFFWriteDirectory(tif);
 
 	// Add an EXIF block to the tiff
