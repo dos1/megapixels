@@ -297,7 +297,8 @@ process_image_for_capture(const MPImage *image, int count)
 		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &camera->whitelevel);
 	}
 	if (camera->blacklevel) {
-		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &camera->blacklevel);
+		const float blacklevel = camera->blacklevel;
+		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &blacklevel);
 	}
 	TIFFCheckpointDirectory(tif);
 	printf("Writing frame to %s\n", fname);
