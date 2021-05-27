@@ -57,11 +57,13 @@ fi
 
 if [ -n "$DCRAW" ]; then
 	# +M		use embedded color matrix
-	# -H 4		Recover highlights by rebuilding them
+	# -a		Average the whole image for white balance
+	# -H 2		Recover highlights by blending them
 	# -o 1		Output in sRGB colorspace
-	# -q 3		Debayer with AHD algorithm
+	# -q 0		Debayer with fast bi-linear interpolation
+	# -f		Interpolate RGGB as four colors
 	# -T		Output TIFF
-	$DCRAW +M -a -H 4 -o 1 -q 3 -T "$@" "$MAIN_PICTURE.dng"
+	$DCRAW +M -a -H 2 -o 1 -q 0 -f -T "$@" "$MAIN_PICTURE.dng"
 
 	# If imagemagick is available, convert the tiff to jpeg and apply slight sharpening
 	if [ -n "$CONVERT" ];
