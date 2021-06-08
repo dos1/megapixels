@@ -15,10 +15,12 @@ struct mp_process_pipeline_state {
 	bool gain_is_manual;
 	int gain;
 	int gain_max;
+	int gain_min;
 
 	bool exposure_is_manual;
 	int exposure;
 	int exposure_max;
+	int exposure_min;
 
 	bool has_auto_focus_continuous;
 	bool has_auto_focus_start;
