@@ -118,6 +118,11 @@ update_state(const struct mp_main_state *state)
 			exposure_max = state->exposure_max;
 			has_auto_focus_continuous = state->has_auto_focus_continuous;
 			has_auto_focus_start = state->has_auto_focus_start;
+			if (camera->hasfocus) {
+				char buf[42] = {};
+				snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(focus >> 8), (uint8_t)(focus & 0xff));
+				g_spawn_command_line_async(buf, NULL);
+			}
 		}
 	}
 
