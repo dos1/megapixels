@@ -166,7 +166,7 @@
                     <property name="spacing">10</property>
                     <child>
                       <object class="GtkButton" id="settings">
-                        <property name="visible">True</property>
+                        <property name="visible">False</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
                         <child>
