@@ -267,7 +267,7 @@ process_image_for_capture(const MPImage *image, int count)
 	// Write black thumbnail, only windows uses this
 	{
 		unsigned char *buf =
-			(unsigned char *)calloc(1, (int)image->width >> 4);
+			(unsigned char *)calloc(1, (image->width >> 4) * 3);
 		for (int row = 0; row < (image->height >> 4); row++) {
 			TIFFWriteScanline(tif, buf, row, 0);
 		}
