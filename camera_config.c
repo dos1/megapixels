@@ -3,6 +3,7 @@
 #include "ini.h"
 #include "config.h"
 #include "matrix.h"
+#include "wb.h"
 #include <wordexp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -228,7 +229,7 @@ config_ini_handler(void *user, const char *section, const char *name,
 }
 
 void
-calculate_matrices()
+mp_calculate_matrices(int illuminant)
 {
 	static float xyz_to_srgb[] = {
 		3.2404542, -1.5371385, -0.4985314,
@@ -237,8 +238,13 @@ calculate_matrices()
 	};
 	for (size_t i = 0; i < MP_MAX_CAMERAS; ++i) {
 		if (cameras[i].colormatrix != NULL) {
-			float inv_colormatrix[9];
-			invert_matrix(cameras[i].colormatrix, inv_colormatrix);
+			float inv_colormatrix[9], balanced[9];
+			float wb[9] = {0};
+			wb[0] = WB_WHITEPOINTS[illuminant][0];
+			wb[4] = WB_WHITEPOINTS[illuminant][1];
+			wb[8] = WB_WHITEPOINTS[illuminant][2];
+			multiply_matrices(cameras[i].colormatrix, wb, balanced);
+			invert_matrix(balanced, inv_colormatrix);
 			multiply_matrices(xyz_to_srgb,
 					  inv_colormatrix,
 					  cameras[i].previewmatrix);
@@ -268,8 +274,6 @@ mp_load_config()
 		g_printerr("Could not parse config file\n");
 		return false;
 	}
-
-	calculate_matrices();
 
 	return true;
 }

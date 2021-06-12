@@ -4,7 +4,9 @@
 #include "zbar_pipeline.h"
 #include "main.h"
 #include "config.h"
+#include "matrix.h"
 #include "quickpreview.h"
+#include "wb.h"
 #include <tiffio.h>
 #include <assert.h>
 #include <math.h>
@@ -44,6 +46,8 @@ static bool exposure_is_manual;
 static int exposure;
 static int exposure_max;
 static int exposure_min;
+
+static int wb;
 
 static char capture_fname[255];
 
@@ -263,9 +267,14 @@ process_image_for_capture(const MPImage *image, int count)
 	if (camera->forwardmatrix[0]) {
 		TIFFSetField(tif, TIFFTAG_FORWARDMATRIX1, 9, camera->forwardmatrix);
 	}
-	static const float neutral[] = { 1.0, 1.0, 1.0 };
-	TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, neutral);
-	TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+	if (camera->colormatrix[0] && camera->forwardmatrix[0]) {
+		float neutral[3];
+		matrix_white_point(camera->previewmatrix, neutral);
+		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, neutral);
+	} else {
+		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, WB_WHITEPOINTS[wb]);
+	}
+	TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21); // D65
 	// Write black thumbnail, only windows uses this
 	{
 		unsigned char *buf =
@@ -330,6 +339,7 @@ process_image_for_capture(const MPImage *image, int count)
 				      camera->iso_max);
 	TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, isospeed);
 	TIFFSetField(tif, EXIFTAG_FLASH, 0);
+	TIFFSetField(tif, EXIFTAG_WHITEBALANCE, 1);
 
 	TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, datetime);
 	TIFFSetField(tif, EXIFTAG_DATETIMEDIGITIZED, datetime);
@@ -523,6 +533,8 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 	exposure = state->exposure;
 	exposure_max = state->exposure_max;
 	exposure_min = state->exposure_min;
+
+	wb = state->wb;
 
 	struct mp_main_state main_state = {
 		.camera = camera,

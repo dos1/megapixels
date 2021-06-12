@@ -89,6 +89,8 @@ struct control_state {
 	int focus;
 };
 
+static int wb;
+
 static struct control_state desired_controls = {};
 static struct control_state current_controls = {};
 
@@ -299,6 +301,7 @@ update_process_pipeline()
 		.has_auto_focus_continuous = info->has_auto_focus_continuous,
 		.has_auto_focus_start = info->has_auto_focus_start,
 		.focus = current_controls.focus,
+		.wb = wb,
 	};
 	mp_process_pipeline_update_state(&pipeline_state);
 }
@@ -595,6 +598,7 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 	burst_length = state->burst_length;
 	preview_width = state->preview_width;
 	preview_height = state->preview_height;
+	wb = state->wb;
 
 	if (camera) {
 		struct control_state previous_desired = desired_controls;

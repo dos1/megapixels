@@ -22,8 +22,9 @@
 #include "camera_config.h"
 #include "quickpreview.h"
 #include "io_pipeline.h"
+#include "wb.h"
 
-enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER, USER_CONTROL_FOCUS };
+enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER, USER_CONTROL_WHITE_BALANCE, USER_CONTROL_FOCUS };
 
 static bool camera_is_initialized = false;
 static bool camera_is_present = false;
@@ -44,6 +45,8 @@ static int exposure_max;
 static int exposure_min;
 
 static int focus;
+
+static int wb = 3;
 
 static bool has_auto_focus_continuous;
 static bool has_auto_focus_start;
@@ -104,6 +107,7 @@ update_io_pipeline()
 		.exposure_is_manual = exposure_is_manual,
 		.exposure = exposure,
 		.focus = focus,
+		.wb = wb,
 	};
 	mp_io_pipeline_update_state(&io_state);
 }
@@ -298,8 +302,12 @@ draw_controls()
 	cairo_text_path(cr, "Exposure");
 	cairo_stroke(cr);
 
+	cairo_move_to(cr, 104, 16);
+	cairo_text_path(cr, "Balance");
+	cairo_stroke(cr);
+
 	if (camera->hasfocus) {
-		cairo_move_to(cr, 104, 16);
+		cairo_move_to(cr, 148, 16);
 		cairo_text_path(cr, "Focus");
 		cairo_stroke(cr);
 	}
@@ -310,8 +318,10 @@ draw_controls()
 	cairo_show_text(cr, "Gain");
 	cairo_move_to(cr, 60, 16);
 	cairo_show_text(cr, "Exposure");
+	cairo_move_to(cr, 104, 16);
+	cairo_show_text(cr, "Balance");
 	if (camera->hasfocus) {
-		cairo_move_to(cr, 104, 16);
+		cairo_move_to(cr, 148, 16);
 		cairo_show_text(cr, "Focus");
 	}
 
@@ -329,8 +339,12 @@ draw_controls()
 	cairo_text_path(cr, shutterangle);
 	cairo_stroke(cr);
 
+	cairo_move_to(cr, 104, 26);
+	cairo_text_path(cr, WB_ILLUMINANTS[wb]);
+	cairo_stroke(cr);
+
 	if (camera->hasfocus) {
-		cairo_move_to(cr, 104, 26);
+		cairo_move_to(cr, 148, 26);
 		cairo_text_path(cr, f);
 		cairo_stroke(cr);
 	}
@@ -341,8 +355,10 @@ draw_controls()
 	cairo_show_text(cr, iso);
 	cairo_move_to(cr, 60, 26);
 	cairo_show_text(cr, shutterangle);
+	cairo_move_to(cr, 104, 26);
+	cairo_show_text(cr, WB_ILLUMINANTS[wb]);
 	if (camera->hasfocus) {
-		cairo_move_to(cr, 104, 26);
+		cairo_move_to(cr, 148, 26);
 		cairo_show_text(cr, f);
 	}
 
@@ -579,7 +595,20 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_adjustment_set_lower(control_slider, (float)exposure_min);
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
-		} else if (event->x > 100 && event->x < 150 && camera->hasfocus) {
+		} else if (event->x > 100 && event->x < 150) {
+			if (current_control == USER_CONTROL_WHITE_BALANCE && gtk_widget_is_visible(control_box)) {
+				gtk_widget_hide(control_box);
+				return;
+			}
+			// White balance
+			current_control = USER_CONTROL_WHITE_BALANCE;
+			gtk_label_set_text(GTK_LABEL(control_name), "Balance");
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
+						     false);
+			gtk_adjustment_set_lower(control_slider, 0.0);
+			gtk_adjustment_set_upper(control_slider, sizeof(WB_ILLUMINANTS) / sizeof(WB_ILLUMINANTS[0]) - 1);
+			gtk_adjustment_set_value(control_slider, wb);
+		} else if (event->x > 150 && event->x < 200 && camera->hasfocus) {
 			if (current_control == USER_CONTROL_FOCUS && gtk_widget_is_visible(control_box)) {
 				gtk_widget_hide(control_box);
 				return;
@@ -685,6 +714,14 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 		}
 		break;
 	}
+	case USER_CONTROL_WHITE_BALANCE: {
+		if (value != wb) {
+			wb = value;
+			has_changed = true;
+			mp_calculate_matrices(wb);
+		}
+		break;
+	}
 	case USER_CONTROL_FOCUS:
 		if (value != focus) {
 			focus = (int)value;
@@ -712,6 +749,8 @@ main(int argc, char *argv[])
 {
 	if (!mp_load_config())
 		return 1;
+
+	mp_calculate_matrices(wb);
 
 	setenv("LC_NUMERIC", "C", 1);
 

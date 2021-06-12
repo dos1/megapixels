@@ -54,14 +54,14 @@ fi
 
 
 if [ -n "$DCRAW" ]; then
+	# -w		Use camera white balance
 	# +M		use embedded color matrix
-	# -a		Average the whole image for white balance
 	# -H 2		Recover highlights by blending them
 	# -o 1		Output in sRGB colorspace
 	# -q 0		Debayer with fast bi-linear interpolation
 	# -f		Interpolate RGGB as four colors
 	# -T		Output TIFF
-	$DCRAW +M -a -H 2 -o 1 -q 0 -f -T "$@" "$MAIN_PICTURE.dng"
+	$DCRAW -w +M -H 2 -o 1 -q 0 -f -T "$@" "$MAIN_PICTURE.dng"
 
 	# If imagemagick is available, convert the tiff to jpeg
 	if [ -n "$CONVERT" ];
