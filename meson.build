@@ -72,5 +72,5 @@ install_data(['postprocess.sh'],
 executable('megapixels-list-devices', 'tools/list_devices.c', 'device.c', dependencies: [gtkdep], install: true)
 executable('megapixels-camera-test', 'tools/camera_test.c', 'camera.c', 'device.c', dependencies: [gtkdep], install: true)
 
-test_quickpreview = executable('test_quickpreview', 'tests/test_quickpreview.c', 'quickpreview.c', 'camera.c', dependencies: [gtkdep])
+test_quickpreview = executable('test_quickpreview', 'tests/test_quickpreview.c', 'quickpreview.c', 'camera.c', 'matrix.c', dependencies: [gtkdep])
 #test('quickpreview', test_quickpreview)
