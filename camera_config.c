@@ -230,11 +230,17 @@ config_ini_handler(void *user, const char *section, const char *name,
 void
 calculate_matrices()
 {
+	static float xyz_to_srgb[] = {
+		3.2404542, -1.5371385, -0.4985314,
+		-0.9692660,  1.8760108,  0.0415560,
+		0.0556434, -0.2040259,  1.0572252
+	};
 	for (size_t i = 0; i < MP_MAX_CAMERAS; ++i) {
-		if (cameras[i].colormatrix != NULL &&
-		    cameras[i].forwardmatrix != NULL) {
-			multiply_matrices(cameras[i].colormatrix,
-					  cameras[i].forwardmatrix,
+		if (cameras[i].colormatrix != NULL) {
+			float inv_colormatrix[9];
+			invert_matrix(cameras[i].colormatrix, inv_colormatrix);
+			multiply_matrices(xyz_to_srgb,
+					  inv_colormatrix,
 					  cameras[i].previewmatrix);
 		}
 	}
