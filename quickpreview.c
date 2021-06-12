@@ -29,16 +29,6 @@ static const int srgb[] = {
 	250, 250, 251, 251, 251, 252, 252, 253, 253, 254, 254, 255
 };
 
-static uint16_t srgb10[1024];
-
-void pop_srgb10()
-{
-    int i;
-
-    for (i=0; i<1024; i++)
-        srgb10[i] = srgb[i>>2];
-}
-
 static inline uint32_t
 pack_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -78,7 +68,7 @@ apply_colormatrix(uint32_t color, const float *colormatrix)
 		g = 0xFF;
 	if (b > 0xFF)
 		b = 0xFF;
-	return pack_rgb(r, g, b);
+	return pack_rgb(srgb[r], srgb[g], srgb[b]);
 }
 
 static inline uint32_t
@@ -116,6 +106,12 @@ coord_map(uint32_t x, uint32_t y, uint32_t width, uint32_t height, int rotation,
 	return index;
 }
 
+static inline uint16_t
+scale_value(uint16_t val, uint16_t min, uint16_t max)
+{
+	return val <= min ? 0 : (val - (min * (max - val) / (max - min)));
+}
+
 static void
 quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 		    const uint32_t dst_height, const uint8_t *src,
@@ -124,20 +120,16 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 		    const bool mirrored, const float *colormatrix,
 		    const uint8_t blacklevel, const uint32_t skip)
 {
-	uint8_t table[255] = {0};
-	for (int i=blacklevel; i <= 255; i++) {
-		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
-	}
 	uint32_t src_y = 0, dst_y = 0;
 	while (src_y < src_height) {
 		uint32_t src_x = 0, dst_x = 0;
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
 
-			uint8_t b0 = table[src[src_i]];
-			uint8_t b1 = table[src[src_i + 1]];
-			uint8_t b2 = table[src[src_i + src_width]];
-			uint8_t b3 = table[src[src_i + src_width + 1]];
+			uint8_t b0 = scale_value(src[src_i], blacklevel, 255);
+			uint8_t b1 = scale_value(src[src_i + 1], blacklevel, 255);
+			uint8_t b2 = scale_value(src[src_i + src_width], blacklevel, 255);
+			uint8_t b3 = scale_value(src[src_i + src_width + 1], blacklevel, 255);
 
 			uint32_t color;
 			switch (format) {
@@ -179,11 +171,6 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		     const bool mirrored, const float *colormatrix,
 		     const uint8_t blacklevel, const uint32_t skip)
 {
-	uint8_t table[255] = {0};
-	for (int i=blacklevel; i <= 255; i++) {
-		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
-	}
-
 	assert(src_width % 2 == 0);
 
 	uint32_t width_bytes = mp_pixel_format_width_to_bytes(format, src_width);
@@ -194,10 +181,10 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		while (src_x < width_bytes) {
 			uint32_t src_i = src_y * width_bytes + src_x;
 
-			uint8_t b0 = table[src[src_i]];
-			uint8_t b1 = table[src[src_i + 1]];
-			uint8_t b2 = table[src[src_i + width_bytes]];
-			uint8_t b3 = table[src[src_i + width_bytes + 1]];
+			uint8_t b0 = scale_value(src[src_i], blacklevel, 255);
+			uint8_t b1 = scale_value(src[src_i + 1], blacklevel, 255);
+			uint8_t b2 = scale_value(src[src_i + width_bytes], blacklevel, 255);
+			uint8_t b3 = scale_value(src[src_i + width_bytes + 1], blacklevel, 255);
 
 			uint32_t color;
 			switch (format) {
@@ -245,12 +232,7 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 		     const uint8_t blacklevel, const uint32_t skip)
 {
 	assert(src_width % 2 == 0);
-    uint16_t *src16 = (uint16_t *)src;
-
-	uint8_t table[1023] = {0};
-	for (int i=blacklevel; i <= 1023; i++) {
-		table[i] = srgb10[i - (blacklevel * (1023 - i) / (1023 - blacklevel))];
-	}
+	uint16_t *src16 = (uint16_t *)src;
 
 #ifdef NO
 	g_printerr("MPCamera: dst %d:%d src %d:%d skip: %d blacklevel %d\n", dst_width, dst_height, src_width, src_height, skip, blacklevel);
@@ -261,11 +243,11 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 		uint32_t src_x = 0, dst_x = 0;
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
-    
-			uint8_t b0 = table[src16[src_i]];
-			uint8_t b1 = table[src16[src_i + 1]];
-			uint8_t b2 = table[src16[src_i + src_width]];
-			uint8_t b3 = table[src16[src_i + src_width + 1]];
+
+			uint8_t b0 = scale_value(src16[src_i], blacklevel, 1023) >> 2;
+			uint8_t b1 = scale_value(src16[src_i + 1], blacklevel, 1023) >> 2;
+			uint8_t b2 = scale_value(src16[src_i + src_width], blacklevel, 1023) >> 2;
+			uint8_t b3 = scale_value(src16[src_i + src_width + 1], blacklevel, 1023) >> 2;
 
 			uint32_t color;
 			switch (format) {
@@ -290,7 +272,7 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 			dst[coord_map(dst_x, dst_y, dst_width, dst_height, rotation,
 				      mirrored)] = color;
 
-            src_x += 2 + 2 * skip;
+			src_x += 2 + 2 * skip;
 			++dst_x;
 		}
 
