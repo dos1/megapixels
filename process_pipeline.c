@@ -38,10 +38,12 @@ static int preview_height;
 // static bool gain_is_manual;
 static int gain;
 static int gain_max;
+static int gain_min;
 
 static bool exposure_is_manual;
 static int exposure;
 static int exposure_max;
+static int exposure_min;
 
 static char capture_fname[255];
 
@@ -513,10 +515,12 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 	// gain_is_manual = state->gain_is_manual;
 	gain = state->gain;
 	gain_max = state->gain_max;
+	gain_min = state->gain_min;
 
 	exposure_is_manual = state->exposure_is_manual;
 	exposure = state->exposure;
 	exposure_max = state->exposure_max;
+	exposure_min = state->exposure_min;
 
 	struct mp_main_state main_state = {
 		.camera = camera,
@@ -525,9 +529,11 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 		.gain_is_manual = state->gain_is_manual,
 		.gain = gain,
 		.gain_max = gain_max,
+		.gain_min = gain_min,
 		.exposure_is_manual = exposure_is_manual,
 		.exposure = exposure,
 		.exposure_max = exposure_max,
+		.exposure_min = exposure_min,
 		.has_auto_focus_continuous = state->has_auto_focus_continuous,
 		.has_auto_focus_start = state->has_auto_focus_start,
 		.focus = state->focus,

@@ -36,10 +36,12 @@ static int preview_height = -1;
 static bool gain_is_manual = false;
 static int gain;
 static int gain_max;
+static int gain_min;
 
 static bool exposure_is_manual = false;
 static int exposure;
 static int exposure_max;
+static int exposure_min;
 
 static int focus;
 
@@ -113,8 +115,10 @@ update_state(const struct mp_main_state *state)
 		camera_is_initialized = true;
 		if (camera == state->camera) {
 			gain = state->gain;
+			gain_min = state->gain_min;
 			gain_max = state->gain_max;
 			exposure = state->exposure;
+			exposure_min = state->exposure_min;
 			exposure_max = state->exposure_max;
 			has_auto_focus_continuous = state->has_auto_focus_continuous;
 			has_auto_focus_start = state->has_auto_focus_start;
@@ -554,7 +558,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_label_set_text(GTK_LABEL(control_name), "Gain");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     false);
-			gtk_adjustment_set_lower(control_slider, 0.0);
+			gtk_adjustment_set_lower(control_slider, (float)gain_min);
 			gtk_adjustment_set_upper(control_slider, (float)gain_max);
 			gtk_adjustment_set_value(control_slider, (double)gain);
 		} else if (event->x > 50 && event->x < 100) {
@@ -567,7 +571,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_label_set_text(GTK_LABEL(control_name), "Exposure");
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     false);
-			gtk_adjustment_set_lower(control_slider, 1.0);
+			gtk_adjustment_set_lower(control_slider, (float)exposure_min);
 			gtk_adjustment_set_upper(control_slider, (float)exposure_max);
 			gtk_adjustment_set_value(control_slider, (double)exposure);
 		} else if (event->x > 100 && event->x < 150 && camera->hasfocus) {
