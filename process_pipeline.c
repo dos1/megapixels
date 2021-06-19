@@ -295,9 +295,11 @@ process_image_for_capture(const MPImage *image, int count)
     TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, cfa_pattern);
 #endif
 	printf("TIFF version %d\n", TIFFLIB_VERSION);
-	if (camera->whitelevel) {
-		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &camera->whitelevel);
+	int whitelevel = camera->whitelevel;
+	if (!whitelevel) {
+		whitelevel = (1 << mp_pixel_format_pixel_depth(image->pixel_format)) - 1;
 	}
+	TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &whitelevel);
 	if (camera->blacklevel) {
 		const float blacklevel = camera->blacklevel;
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &blacklevel);
