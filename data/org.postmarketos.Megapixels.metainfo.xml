@@ -25,6 +25,10 @@
 	</screenshots>
 	<url type="homepage">https://sr.ht/~martijnbraam/megapixels</url>
 	<content_rating type="oars-1.1" />
+	<custom>
+		<value key="Purism::form_factor">workstation</value>
+		<value key="Purism::form_factor">mobile</value>
+	</custom>
 	<releases>
 		<release version="0.14.0" date="2021-01-11">
 			<description>
