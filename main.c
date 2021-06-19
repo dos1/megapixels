@@ -43,7 +43,7 @@ static int exposure;
 static int exposure_max;
 static int exposure_min;
 
-static int focus;
+static int focus = 3500;
 
 static bool has_auto_focus_continuous;
 static bool has_auto_focus_start;
