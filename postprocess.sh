@@ -47,11 +47,9 @@ CONVERT=""
 if command -v "convert" > /dev/null
 then
 	CONVERT="convert"
-	# -fbdd 1	Raw denoising with FBDD
-	set -- -fbdd 1
 elif command -v "gm" > /dev/null
 then
-	CONVERT="gm"
+	CONVERT="gm convert"
 fi
 
 
@@ -65,14 +63,10 @@ if [ -n "$DCRAW" ]; then
 	# -T		Output TIFF
 	$DCRAW +M -a -H 2 -o 1 -q 0 -f -T "$@" "$MAIN_PICTURE.dng"
 
-	# If imagemagick is available, convert the tiff to jpeg and apply slight sharpening
+	# If imagemagick is available, convert the tiff to jpeg
 	if [ -n "$CONVERT" ];
 	then
-		if [ "$CONVERT" = "convert" ]; then
-			convert "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.jpg"
-		else
-			gm convert "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.jpg"
-		fi
+		$CONVERT "$MAIN_PICTURE.$TIFF_EXT" "$TARGET_NAME.jpg"
 
 		# If exiftool is installed copy the exif data over from the tiff to the jpeg
 		# since imagemagick is stupid
