@@ -48,6 +48,7 @@ static int exposure_max;
 static int exposure_min;
 
 static int wb;
+static int focus;
 
 static char capture_fname[255];
 
@@ -354,6 +355,9 @@ process_image_for_capture(const MPImage *image, int count)
 		TIFFSetField(tif, EXIFTAG_FOCALLENGTHIN35MMFILM,
 			     (short)(camera->focallength * camera->cropfactor));
 	}
+	char makernote[255] = {};
+	snprintf(makernote, 255, "L5MP Gain: %d; Exposure: %d; Focus: %d; Balance: %s", gain, exposure, focus, WB_ILLUMINANTS[wb]);
+	TIFFSetField(tif, EXIFTAG_MAKERNOTE, strlen(makernote) + 1, makernote);
 	uint64_t exif_offset = 0;
 	TIFFWriteCustomDirectory(tif, &exif_offset);
 	TIFFFreeDirectory(tif);
@@ -536,6 +540,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 	exposure_min = state->exposure_min;
 
 	wb = state->wb;
+	focus = state->focus;
 
 	struct mp_main_state main_state = {
 		.camera = camera,
@@ -551,7 +556,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 		.exposure_min = exposure_min,
 		.has_auto_focus_continuous = state->has_auto_focus_continuous,
 		.has_auto_focus_start = state->has_auto_focus_start,
-		.focus = state->focus,
+		.focus = focus,
 	};
 	mp_main_update_state(&main_state);
 }
