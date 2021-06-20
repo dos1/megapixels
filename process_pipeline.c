@@ -330,10 +330,10 @@ process_image_for_capture(const MPImage *image, int count)
 		TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 1);
 	}
 
-	TIFFSetField(tif, EXIFTAG_EXPOSURETIME,
-		     (mode.frame_interval.numerator /
-		      (float)mode.frame_interval.denominator) /
-			     ((float)image->height / (float)exposure));
+	//TIFFSetField(tif, EXIFTAG_EXPOSURETIME,
+	//	     (mode.frame_interval.numerator /
+	//	      (float)mode.frame_interval.denominator) /
+	//		     ((float)image->height / (float)exposure));
 	if (camera->iso_min && camera->iso_max) {
 		uint16_t isospeed = remap(gain - 1, gain_min, gain_max, camera->iso_min,
 					  camera->iso_max);
