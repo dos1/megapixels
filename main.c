@@ -619,7 +619,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 						     false);
 			gtk_adjustment_set_lower(control_slider, 0.0);
 			gtk_adjustment_set_upper(control_slider, 16383);
-			gtk_adjustment_set_value(control_slider, (double)focus);
+			gtk_adjustment_set_value(control_slider, 16383 - focus);
 		}
 		gtk_widget_show(control_box);
 
@@ -724,7 +724,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 	}
 	case USER_CONTROL_FOCUS:
 		if (value != focus) {
-			focus = (int)value;
+			focus = 16383 - value;
 			has_changed = true;
 			char buf[42] = {};
 			snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(focus >> 8), (uint8_t)(focus & 0xff));
