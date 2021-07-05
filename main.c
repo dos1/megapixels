@@ -44,7 +44,7 @@ static int exposure;
 static int exposure_max;
 static int exposure_min;
 
-static int focus;
+static int focus = 3500;
 
 static int wb = 3;
 
