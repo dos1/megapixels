@@ -4,6 +4,7 @@
  */
 
 #include "quickpreview.h"
+#include "matrix.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -29,16 +30,6 @@ static const int srgb[] = {
 	250, 250, 251, 251, 251, 252, 252, 253, 253, 254, 254, 255
 };
 
-static uint16_t srgb10[1024];
-
-void pop_srgb10()
-{
-    int i;
-
-    for (i=0; i<1024; i++)
-        srgb10[i] = srgb[i>>2];
-}
-
 static inline uint32_t
 pack_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -55,30 +46,48 @@ convert_yuv_to_srgb(uint8_t y, uint8_t u, uint8_t v)
 }
 
 static inline uint32_t
-apply_colormatrix(uint32_t color, const float *colormatrix)
+apply_colormatrix(uint32_t color, const float *colormatrix, uint32_t whitepoint)
 {
 	if (!colormatrix) {
 		return color;
 	}
 
-	uint32_t r = (color >> 16) * colormatrix[0] +
-		     ((color >> 8) & 0xFF) * colormatrix[1] +
-		     (color & 0xFF) * colormatrix[2];
-	uint32_t g = (color >> 16) * colormatrix[3] +
-		     ((color >> 8) & 0xFF) * colormatrix[4] +
-		     (color & 0xFF) * colormatrix[5];
-	uint32_t b = (color >> 16) * colormatrix[6] +
-		     ((color >> 8) & 0xFF) * colormatrix[7] +
-		     (color & 0xFF) * colormatrix[8];
+	uint8_t cR = color >> 16;
+	uint8_t cG = color >> 8;
+	uint8_t cB = color;
 
-	// Clip colors
+	uint8_t wR = whitepoint >> 16;
+	uint8_t wG = whitepoint >> 8;
+	uint8_t wB = whitepoint;
+
+	// Clip highlights
+	if (cR >= wR || cG >= wG || cB >= wB) {
+		float rR = cR / (float)wR, rG = cG / (float)wG, rB = cB / (float)wB;
+		float ratio = (rR + rG + rB) * 0.95 / 3.0;
+		if (ratio > 1) {
+			cR = wR; cG = wG; cB = wB;
+		}
+	}
+
+	uint32_t r = cR * colormatrix[0] +
+		     cG * colormatrix[1] +
+		     cB * colormatrix[2];
+	uint32_t g = cR * colormatrix[3] +
+		     cG * colormatrix[4] +
+		     cB * colormatrix[5];
+	uint32_t b = cR * colormatrix[6] +
+		     cG * colormatrix[7] +
+		     cB * colormatrix[8];
+
+	// Clip out-of-gamut colors
 	if (r > 0xFF)
 		r = 0xFF;
 	if (g > 0xFF)
 		g = 0xFF;
 	if (b > 0xFF)
 		b = 0xFF;
-	return pack_rgb(r, g, b);
+
+	return pack_rgb(srgb[r], srgb[g], srgb[b]);
 }
 
 static inline uint32_t
@@ -116,6 +125,12 @@ coord_map(uint32_t x, uint32_t y, uint32_t width, uint32_t height, int rotation,
 	return index;
 }
 
+static inline uint16_t
+scale_value(uint16_t val, uint16_t min, uint16_t max)
+{
+	return val <= min ? 0 : (val - (min * (max - val) / (max - min)));
+}
+
 static void
 quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 		    const uint32_t dst_height, const uint8_t *src,
@@ -124,20 +139,20 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 		    const bool mirrored, const float *colormatrix,
 		    const uint8_t blacklevel, const uint32_t skip)
 {
-	uint8_t table[255] = {0};
-	for (int i=blacklevel; i <= 255; i++) {
-		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
-	}
+	float wp[3];
+	matrix_white_point(colormatrix, wp);
+	uint32_t whitepoint = pack_rgb(wp[0] * 255, wp[1] * 255, wp[2] * 255);
+
 	uint32_t src_y = 0, dst_y = 0;
 	while (src_y < src_height) {
 		uint32_t src_x = 0, dst_x = 0;
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
 
-			uint8_t b0 = table[src[src_i]];
-			uint8_t b1 = table[src[src_i + 1]];
-			uint8_t b2 = table[src[src_i + src_width]];
-			uint8_t b3 = table[src[src_i + src_width + 1]];
+			uint8_t b0 = scale_value(src[src_i], blacklevel, 255);
+			uint8_t b1 = scale_value(src[src_i + 1], blacklevel, 255);
+			uint8_t b2 = scale_value(src[src_i + src_width], blacklevel, 255);
+			uint8_t b3 = scale_value(src[src_i + src_width + 1], blacklevel, 255);
 
 			uint32_t color;
 			switch (format) {
@@ -157,7 +172,7 @@ quick_preview_rggb8(uint32_t *dst, const uint32_t dst_width,
 				assert(false);
 			}
 
-			color = apply_colormatrix(color, colormatrix);
+			color = apply_colormatrix(color, colormatrix, whitepoint);
 
 			dst[coord_map(dst_x, dst_y, dst_width, dst_height, rotation,
 				      mirrored)] = color;
@@ -179,12 +194,11 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		     const bool mirrored, const float *colormatrix,
 		     const uint8_t blacklevel, const uint32_t skip)
 {
-	uint8_t table[255] = {0};
-	for (int i=blacklevel; i <= 255; i++) {
-		table[i] = srgb[i - (blacklevel * (255 - i) / (255 - blacklevel))];
-	}
-
 	assert(src_width % 2 == 0);
+
+	float wp[3];
+	matrix_white_point(colormatrix, wp);
+	uint32_t whitepoint = pack_rgb(wp[0] * 255, wp[1] * 255, wp[2] * 255);
 
 	uint32_t width_bytes = mp_pixel_format_width_to_bytes(format, src_width);
 
@@ -194,10 +208,10 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 		while (src_x < width_bytes) {
 			uint32_t src_i = src_y * width_bytes + src_x;
 
-			uint8_t b0 = table[src[src_i]];
-			uint8_t b1 = table[src[src_i + 1]];
-			uint8_t b2 = table[src[src_i + width_bytes]];
-			uint8_t b3 = table[src[src_i + width_bytes + 1]];
+			uint8_t b0 = scale_value(src[src_i], blacklevel, 255);
+			uint8_t b1 = scale_value(src[src_i + 1], blacklevel, 255);
+			uint8_t b2 = scale_value(src[src_i + width_bytes], blacklevel, 255);
+			uint8_t b3 = scale_value(src[src_i + width_bytes + 1], blacklevel, 255);
 
 			uint32_t color;
 			switch (format) {
@@ -217,7 +231,7 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 				assert(false);
 			}
 
-			color = apply_colormatrix(color, colormatrix);
+			color = apply_colormatrix(color, colormatrix, whitepoint);
 
 			dst[coord_map(dst_x, dst_y, dst_width, dst_height, rotation,
 				      mirrored)] = color;
@@ -245,12 +259,11 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 		     const uint8_t blacklevel, const uint32_t skip)
 {
 	assert(src_width % 2 == 0);
-    uint16_t *src16 = (uint16_t *)src;
+	uint16_t *src16 = (uint16_t *)src;
 
-	uint8_t table[1023] = {0};
-	for (int i=blacklevel; i <= 1023; i++) {
-		table[i] = srgb10[i - (blacklevel * (1023 - i) / (1023 - blacklevel))];
-	}
+	float wp[3];
+	matrix_white_point(colormatrix, wp);
+	uint32_t whitepoint = pack_rgb(wp[0] * 255, wp[1] * 255, wp[2] * 255);
 
 #ifdef NO
 	g_printerr("MPCamera: dst %d:%d src %d:%d skip: %d blacklevel %d\n", dst_width, dst_height, src_width, src_height, skip, blacklevel);
@@ -261,11 +274,11 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 		uint32_t src_x = 0, dst_x = 0;
 		while (src_x < src_width) {
 			uint32_t src_i = src_y * src_width + src_x;
-    
-			uint8_t b0 = table[src16[src_i]];
-			uint8_t b1 = table[src16[src_i + 1]];
-			uint8_t b2 = table[src16[src_i + src_width]];
-			uint8_t b3 = table[src16[src_i + src_width + 1]];
+
+			uint8_t b0 = scale_value(src16[src_i], blacklevel, 1023) >> 2;
+			uint8_t b1 = scale_value(src16[src_i + 1], blacklevel, 1023) >> 2;
+			uint8_t b2 = scale_value(src16[src_i + src_width], blacklevel, 1023) >> 2;
+			uint8_t b3 = scale_value(src16[src_i + src_width + 1], blacklevel, 1023) >> 2;
 
 			uint32_t color;
 			switch (format) {
@@ -285,12 +298,12 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 				assert(false);
 			}
 
-			color = apply_colormatrix(color, colormatrix);
+			color = apply_colormatrix(color, colormatrix, whitepoint);
 
 			dst[coord_map(dst_x, dst_y, dst_width, dst_height, rotation,
 				      mirrored)] = color;
 
-            src_x += 2 + 2 * skip;
+			src_x += 2 + 2 * skip;
 			++dst_x;
 		}
 
@@ -307,6 +320,10 @@ quick_preview_yuv(uint32_t *dst, const uint32_t dst_width, const uint32_t dst_he
 		  const float *colormatrix, const uint32_t skip)
 {
 	assert(src_width % 2 == 0);
+
+	float wp[3];
+	matrix_white_point(colormatrix, wp);
+	uint32_t whitepoint = pack_rgb(wp[0] * 255, wp[1] * 255, wp[2] * 255);
 
 	uint32_t width_bytes = src_width * 2;
 
@@ -340,8 +357,8 @@ quick_preview_yuv(uint32_t *dst, const uint32_t dst_width, const uint32_t dst_he
 				assert(false);
 			}
 
-			color1 = apply_colormatrix(color1, colormatrix);
-			color2 = apply_colormatrix(color2, colormatrix);
+			color1 = apply_colormatrix(color1, colormatrix, whitepoint);
+			color2 = apply_colormatrix(color2, colormatrix, whitepoint);
 
 			uint32_t dst_i1 = coord_map(dst_x, dst_y, dst_width,
 						    dst_height, rotation, mirrored);

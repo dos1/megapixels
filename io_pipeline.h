@@ -17,6 +17,8 @@ struct mp_io_pipeline_state {
 	int exposure;
 
 	int focus;
+
+	int wb;
 };
 
 void mp_io_pipeline_start();

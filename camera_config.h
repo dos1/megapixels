@@ -46,7 +46,7 @@ struct mp_camera_config {
 };
 
 bool mp_load_config();
-
+void mp_calculate_matrices(int illuminant);
 const char *mp_get_device_make();
 const char *mp_get_device_model();
 const struct mp_camera_config *mp_get_camera_config(size_t index);
