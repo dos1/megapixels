@@ -225,9 +225,9 @@ process_image_for_capture(const MPImage *image, int count)
 	}
 
 	// Define TIFF thumbnail
+	int thumbnail_width = image->width >> 4;
+	int thumbnail_height = image->height >> 4;
 	TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
-	TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, image->width >> 4);
-	TIFFSetField(tif, TIFFTAG_IMAGELENGTH, image->height >> 4);
 	TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 	TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 	TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
@@ -249,7 +249,9 @@ process_image_for_capture(const MPImage *image, int count)
 	}
 	TIFFSetField(tif, TIFFTAG_ORIENTATION, orientation);
 	TIFFSetField(tif, TIFFTAG_DATETIME, datetime);
-	TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
+	TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 4);
+	int extrasamples = EXTRASAMPLE_UNSPECIFIED;
+	TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &extrasamples);
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 	TIFFSetField(tif, TIFFTAG_SOFTWARE, "Megapixels");
 	long sub_offset = 0;
@@ -276,14 +278,26 @@ process_image_for_capture(const MPImage *image, int count)
 		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, WB_WHITEPOINTS[wb]);
 	}
 	TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21); // D65
-	// Write black thumbnail, only windows uses this
 	{
-		unsigned char *buf =
-			(unsigned char *)calloc(1, (image->width >> 4) * 3);
-		for (int row = 0; row < (image->height >> 4); row++) {
-			TIFFWriteScanline(tif, buf, row, 0);
+		uint32_t surface_width, surface_height, skip;
+		quick_preview_size(&surface_width, &surface_height, &skip, thumbnail_width,
+				thumbnail_height, image->width, image->height,
+				image->pixel_format, 0);
+
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, surface_width);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, surface_height);
+
+		uint8_t *pixels = malloc(surface_width * 4 * surface_height);
+		quick_preview((uint32_t *)pixels, surface_width, surface_height, image->data,
+			image->width, image->height, image->pixel_format,
+			0, false,
+			camera->previewmatrix[0] == 0 ? NULL : camera->previewmatrix,
+			camera->blacklevel, skip);
+
+		for (int row = 0; row < thumbnail_height; row++) {
+			TIFFWriteScanline(tif, pixels + surface_width * 4 * row, row, 0);
 		}
-		free(buf);
+		free(pixels);
 	}
 	TIFFWriteDirectory(tif);
 
