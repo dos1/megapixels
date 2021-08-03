@@ -237,11 +237,11 @@ quick_preview_rggb10p(uint32_t *dst, const uint32_t dst_width,
 				      mirrored)] = color;
 
 			uint32_t advance = 1 + skip;
-            if (src_x % 5 == 0) {
-                src_x += 2 * (advance % 2) + 5 * (advance / 2);
-            } else {
-                src_x += 3 * (advance % 2) + 5 * (advance / 2);
-            }
+			if (src_x % 5 == 0) {
+				src_x += 2 * (advance % 2) + 5 * (advance / 2);
+			} else {
+				src_x += 3 * (advance % 2) + 5 * (advance / 2);
+			}
 			++dst_x;
 		}
 

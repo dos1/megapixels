@@ -73,8 +73,8 @@ static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
 static const char *
 mp_pixel_format_to_cfa_pattern(uint32_t pixel_format)
 {
-    g_return_val_if_fail(pixel_format < MP_PIXEL_FMT_MAX, "\002\001\001\000");
-    return pixel_format_names[pixel_format];
+	g_return_val_if_fail(pixel_format < MP_PIXEL_FMT_MAX, "\002\001\001\000");
+	return pixel_format_names[pixel_format];
 }
 
 static void
@@ -312,11 +312,11 @@ process_image_for_capture(const MPImage *image, int count)
 	static const short cfapatterndim[] = { 2, 2 };
 	TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfapatterndim);
 
-    const char *cfa_pattern = mp_pixel_format_to_cfa_pattern(image->pixel_format);
+	const char *cfa_pattern = mp_pixel_format_to_cfa_pattern(image->pixel_format);
 #if (TIFFLIB_VERSION < 20201219) && !LIBTIFF_CFA_PATTERN
-    TIFFSetField(tif, TIFFTAG_CFAPATTERN, cfa_pattern);
+	TIFFSetField(tif, TIFFTAG_CFAPATTERN, cfa_pattern);
 #else
-    TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, cfa_pattern);
+	TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, cfa_pattern);
 #endif
 	printf("TIFF version %d\n", TIFFLIB_VERSION);
 	int whitelevel = camera->whitelevel;
@@ -559,7 +559,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 	struct mp_main_state main_state = {
 		.camera = camera,
 		.mode = mode,
-        .is_present = state->is_present,
+		.is_present = state->is_present,
 		.gain_is_manual = state->gain_is_manual,
 		.gain = gain,
 		.gain_max = gain_max,

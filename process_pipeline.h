@@ -5,7 +5,7 @@
 struct mp_process_pipeline_state {
 	const struct mp_camera_config *camera;
 	MPCameraMode mode;
-    bool is_present;
+	bool is_present;
 
 	int burst_length;
 

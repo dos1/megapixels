@@ -28,13 +28,13 @@ test_quick_preview_fuzz()
 				width += width % 2;
 				height += height % 2;
 				break;
-            case MP_PIXEL_FMT_BGGR10:
-            case MP_PIXEL_FMT_GBRG10:
-            case MP_PIXEL_FMT_GRBG10:
-            case MP_PIXEL_FMT_RGGB10:
-                width += width % 4;
-                height += height % 2;
-                break;
+			case MP_PIXEL_FMT_BGGR10:
+			case MP_PIXEL_FMT_GBRG10:
+			case MP_PIXEL_FMT_GRBG10:
+			case MP_PIXEL_FMT_RGGB10:
+				width += width % 4;
+				height += height % 2;
+				break;
 			case MP_PIXEL_FMT_UYVY:
 			case MP_PIXEL_FMT_YUYV:
 				width += width % 4;

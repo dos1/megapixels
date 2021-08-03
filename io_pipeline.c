@@ -105,8 +105,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 	// Find device info
 	size_t device_index = 0;
 	for (; device_index < num_devices; ++device_index) {
-        if (strcmp(config->media_dev_name,
-               devices[device_index].media_dev_name) == 0) {
+		if (strcmp(config->media_dev_name,
+			   devices[device_index].media_dev_name) == 0) {
 			break;
 		}
 	}
@@ -118,15 +118,15 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		struct device_info *info = &devices[device_index];
 		info->media_dev_name = config->media_dev_name;
 		info->device = mp_device_list_find_remove(device_list,
-                              info->media_dev_name);
+							  info->media_dev_name);
 		if (!info->device) {
 			g_printerr("Could not find /dev/media* node matching '%s'\n",
-                   info->media_dev_name);
+				   info->media_dev_name);
 			return;
 		}
 
 		const struct media_v2_entity *entity =
-            mp_device_find_entity_type(info->device, MEDIA_ENT_F_IO_V4L);
+			mp_device_find_entity_type(info->device, MEDIA_ENT_F_IO_V4L);
 		if (!entity) {
 			g_printerr("Could not find device video entity\n");
 			exit(EXIT_FAILURE);
@@ -136,19 +136,19 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			mp_device_get_pad_from_entity(info->device, entity->id);
 		info->interface_pad_id = pad->id;
 
-        char dev_name[260];
-        /*
-        const struct media_v2_interface *interface =
-            mp_device_find_entity_interface(info->device, entity->id);
+		char dev_name[260];
+		/*
+		const struct media_v2_interface *interface =
+		    mp_device_find_entity_interface(info->device, entity->id);
 
 		if (!mp_find_device_path(interface->devnode, dev_name, 260)) {
 			g_printerr("Could not find video path\n");
 			exit(EXIT_FAILURE);
 		}
-        */
-        strncpy(dev_name, config->dev_name, 260);
+		*/
+		strncpy(dev_name, config->dev_name, 260);
 
-        info->video_fd = open(config->media_dev_name, O_RDWR);
+		info->video_fd = open(config->media_dev_name, O_RDWR);
 		if (info->video_fd == -1) {
 			g_printerr("Could not open %s: %s\n", dev_name, strerror(errno));
 			exit(EXIT_FAILURE);
@@ -195,7 +195,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			exit(EXIT_FAILURE);
 		}
 */
-        info->fd = -1;// dev_info->video_fd;
+		info->fd = -1;// dev_info->video_fd;
 		info->camera = mp_camera_new(dev_info->video_fd, info->fd);
 
 		// Trigger continuous auto focus if the sensor supports it
@@ -232,7 +232,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 static void
 setup(MPPipeline *pipeline, const void *data)
 {
-    MPDeviceList *device_list = mp_device_list_new_legacy();
+	MPDeviceList *device_list = mp_device_list_new_legacy();
 
 	for (size_t i = 0; i < MP_MAX_CAMERAS; ++i) {
 		const struct mp_camera_config *config = mp_get_camera_config(i);
@@ -333,9 +333,9 @@ capture(MPPipeline *pipeline, const void *data)
 {
 	struct camera_info *info = &cameras[camera->index];
 
-    if (!info->camera) {
-        return;
-    }
+	if (!info->camera) {
+		return;
+	}
 	captures_remaining = burst_length;
 
 	// Disable the autogain/exposure while taking the burst
@@ -368,8 +368,8 @@ capture(MPPipeline *pipeline, const void *data)
 
 static void
 release(MPPipeline *pipeline, const void *data) {
-    struct camera_info *info = &cameras[camera->index];
-    mp_camera_stop_capture(info->camera);
+	struct camera_info *info = &cameras[camera->index];
+	mp_camera_stop_capture(info->camera);
 }
 
 void
@@ -382,7 +382,7 @@ mp_io_pipeline_capture()
 void
 mp_io_pipeline_release(void)
 {
-    mp_pipeline_invoke(pipeline, release, NULL, 0);
+	mp_pipeline_invoke(pipeline, release, NULL, 0);
 }
 
 
@@ -555,45 +555,45 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 
 		camera = state->camera;
 
-        if (camera) {
+		if (camera) {
 			struct camera_info *info = &cameras[camera->index];
-            struct device_info *dev_info = &devices[info->device_index];
+			struct device_info *dev_info = &devices[info->device_index];
 
-            if (!dev_info->device) {
-                return;
-            }
+			if (!dev_info->device) {
+				return;
+			}
 
-            mp_device_setup_link(dev_info->device, info->pad_id,
-                         dev_info->interface_pad_id, true);
+			mp_device_setup_link(dev_info->device, info->pad_id,
+					     dev_info->interface_pad_id, true);
 
-            mode = camera->preview_mode;
-            if (!mp_camera_set_mode(info->camera, &mode)) {
-                // HACK:
-                // The Librem 5 cameras support setting mode,
-                // but also fail when the camera was off while booting
-                // because that causes the module to stay unloaded.
-                info->camera = NULL;
-                return;
-            }
+			mode = camera->preview_mode;
+			if (!mp_camera_set_mode(info->camera, &mode)) {
+				// HACK:
+				// The Librem 5 cameras support setting mode,
+				// but also fail when the camera was off while booting
+				// because that causes the module to stay unloaded.
+				info->camera = NULL;
+				return;
+			}
 
-            mp_camera_start_capture(info->camera);
-            capture_source = mp_pipeline_add_capture_source(
-                pipeline, info->camera, on_frame, NULL);
+			mp_camera_start_capture(info->camera);
+			capture_source = mp_pipeline_add_capture_source(
+				pipeline, info->camera, on_frame, NULL);
 
-            current_controls.gain_is_manual = true;
-            current_controls.gain = mp_camera_control_get_int32(
-                info->camera, info->gain_ctrl);
+			current_controls.gain_is_manual = true;
+			current_controls.gain = mp_camera_control_get_int32(
+				info->camera, info->gain_ctrl);
 
-            current_controls.exposure_is_manual = true;
-            current_controls.exposure = mp_camera_control_get_int32(
-                info->camera, V4L2_CID_EXPOSURE);
+			current_controls.exposure_is_manual = true;
+			current_controls.exposure = mp_camera_control_get_int32(
+				info->camera, V4L2_CID_EXPOSURE);
 			// current_controls.focus = TODO: FILL IN once focus is a contol
-        }
+		}
 	}
 
 	has_changed = has_changed || burst_length != state->burst_length ||
-		preview_width != state->preview_width ||
-		preview_height != state->preview_height;
+		      preview_width != state->preview_width ||
+		      preview_height != state->preview_height;
 
 	burst_length = state->burst_length;
 	preview_width = state->preview_width;
@@ -614,9 +614,9 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 					      sizeof(struct control_state)) != 0;
 	}
 
-    if (!has_changed) {
-        printf("Change of controls wasn't accepted");
-    }
+	if (!has_changed) {
+		printf("Change of controls wasn't accepted");
+	}
 
 	update_process_pipeline();
 }
