@@ -10,7 +10,7 @@ bool mp_find_device_path(struct media_v2_intf_devnode devnode, char *path,
 
 typedef struct _MPDevice MPDevice;
 
-MPDevice *mp_device_find(const char *driver_name);
+MPDevice *mp_device_find(const char *driver_name, const char *dev_name);
 MPDevice *mp_device_open(const char *path);
 MPDevice *mp_device_new(int fd);
 MPDevice *mp_device_new_legacy(int fd, const char *path);
@@ -58,7 +58,7 @@ MPDeviceList *mp_device_list_new_legacy(void);
 void mp_device_list_free(MPDeviceList *device_list);
 
 MPDevice *mp_device_list_find_remove(MPDeviceList **device_list,
-				     const char *driver_name);
+				     const char *driver_name, const char *dev_name);
 MPDevice *mp_device_list_remove(MPDeviceList **device_list);
 
 MPDevice *mp_device_list_get(const MPDeviceList *device_list);

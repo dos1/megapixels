@@ -54,6 +54,7 @@ struct camera_info {
 
 struct device_info {
 	const char *media_dev_name; // owned by camera config
+	const char *dev_name; // owned by camera config
 
 	MPDevice *device;
 
@@ -105,8 +106,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 	// Find device info
 	size_t device_index = 0;
 	for (; device_index < num_devices; ++device_index) {
-		if (strcmp(config->media_dev_name,
-			   devices[device_index].media_dev_name) == 0) {
+		if ((strcmp(config->media_dev_name,
+			   devices[device_index].media_dev_name) == 0) && (strcmp(config->dev_name, devices[device_index].dev_name) == 0)) {
 			break;
 		}
 	}
@@ -117,8 +118,9 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		// Initialize new device
 		struct device_info *info = &devices[device_index];
 		info->media_dev_name = config->media_dev_name;
+		info->dev_name = config->dev_name;
 		info->device = mp_device_list_find_remove(device_list,
-							  info->media_dev_name);
+							  info->media_dev_name, info->dev_name);
 		if (!info->device) {
 			g_printerr("Could not find /dev/media* node matching '%s'\n",
 				   info->media_dev_name);
@@ -137,7 +139,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		info->interface_pad_id = pad->id;
 
 		char dev_name[260];
-		/*
+
 		const struct media_v2_interface *interface =
 		    mp_device_find_entity_interface(info->device, entity->id);
 
@@ -145,10 +147,11 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			g_printerr("Could not find video path\n");
 			exit(EXIT_FAILURE);
 		}
-		*/
-		strncpy(dev_name, config->dev_name, 260);
+printf("devname %s\n", dev_name);
+//exit(0);
+		//strncpy(dev_name, config->dev_name, 260);
 
-		info->video_fd = open(config->media_dev_name, O_RDWR);
+		info->video_fd = open(dev_name, O_RDWR);
 		if (info->video_fd == -1) {
 			g_printerr("Could not open %s: %s\n", dev_name, strerror(errno));
 			exit(EXIT_FAILURE);
@@ -162,7 +165,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 		struct device_info *dev_info = &devices[device_index];
 
 		info->device_index = device_index;
-/*
+
 		const struct media_v2_entity *entity =
 			mp_device_find_entity(dev_info->device, config->dev_name);
 		if (!entity) {
@@ -194,8 +197,8 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 			g_printerr("Could not open %s: %s\n", info->dev_fname, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-*/
-		info->fd = -1;// dev_info->video_fd;
+
+		//info->fd = dev_info->video_fd;
 		info->camera = mp_camera_new(dev_info->video_fd, info->fd);
 
 		// Trigger continuous auto focus if the sensor supports it
@@ -232,7 +235,7 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 static void
 setup(MPPipeline *pipeline, const void *data)
 {
-	MPDeviceList *device_list = mp_device_list_new_legacy();
+	MPDeviceList *device_list = mp_device_list_new();
 
 	for (size_t i = 0; i < MP_MAX_CAMERAS; ++i) {
 		const struct mp_camera_config *config = mp_get_camera_config(i);

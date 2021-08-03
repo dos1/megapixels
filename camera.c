@@ -13,6 +13,7 @@ static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
 	"unsupported", "BGGR8",	"GBRG8", "GRBG8", "RGGB8",
 	"BGGR10P", "GBRG10P", "GRBG10P", "RGGB10P",
 	"BGGR10", "GBRG10", "GRBG10", "RGGB10",
+	"BGGR16", "GBRG16", "GRBG16", "RGGB16",
 	"UYVY",  "YUYV",
 };
 
@@ -28,6 +29,7 @@ mp_pixel_format_from_str(const char *name)
 {
 	for (MPPixelFormat i = 0; i < MP_PIXEL_FMT_MAX; ++i) {
 		if (strcasecmp(pixel_format_names[i], name) == 0) {
+printf("matched %s to %s %d\n", name, pixel_format_names[i], i);
 			return i;
 		}
 	}
@@ -48,6 +50,10 @@ static const uint32_t pixel_format_v4l_pixel_formats[MP_PIXEL_FMT_MAX] = {
 	V4L2_PIX_FMT_SGBRG10,
 	V4L2_PIX_FMT_SGRBG10,
 	V4L2_PIX_FMT_SRGGB10,
+	V4L2_PIX_FMT_SBGGR16,
+	V4L2_PIX_FMT_SGBRG16,
+	V4L2_PIX_FMT_SGRBG16,
+	V4L2_PIX_FMT_SRGGB16,
 	V4L2_PIX_FMT_UYVY,
 	V4L2_PIX_FMT_YUYV,
 };
@@ -76,6 +82,10 @@ static const uint32_t pixel_format_v4l_bus_codes[MP_PIXEL_FMT_MAX] = {
 	MEDIA_BUS_FMT_SGBRG8_1X8,
 	MEDIA_BUS_FMT_SGRBG8_1X8,
 	MEDIA_BUS_FMT_SRGGB8_1X8,
+	MEDIA_BUS_FMT_SBGGR10_1X10,
+	MEDIA_BUS_FMT_SGBRG10_1X10,
+	MEDIA_BUS_FMT_SGRBG10_1X10,
+	MEDIA_BUS_FMT_SRGGB10_1X10,
 	MEDIA_BUS_FMT_SBGGR10_1X10,
 	MEDIA_BUS_FMT_SGBRG10_1X10,
 	MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -125,6 +135,10 @@ mp_pixel_format_bits_per_pixel(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
 	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
+	case MP_PIXEL_FMT_BGGR16:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return 16;
@@ -151,6 +165,10 @@ mp_pixel_format_pixel_depth(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
 	case MP_PIXEL_FMT_BGGR10P:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
+	case MP_PIXEL_FMT_BGGR16:
 		return 10;
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
@@ -186,6 +204,10 @@ mp_pixel_format_width_to_colors(MPPixelFormat pixel_format, uint32_t width)
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
+	case MP_PIXEL_FMT_BGGR16:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
 		return width / 2;
 	case MP_PIXEL_FMT_BGGR10P:
 	case MP_PIXEL_FMT_GBRG10P:
@@ -217,6 +239,10 @@ mp_pixel_format_height_to_colors(MPPixelFormat pixel_format, uint32_t height)
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
+	case MP_PIXEL_FMT_BGGR16:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
 		return height / 2;
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
@@ -329,32 +355,13 @@ mp_camera_get_subdev_fd(MPCamera *camera)
 	return camera->subdev_fd;
 }
 
-static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
-	switch (fmt) {
-	case MP_PIXEL_FMT_BGGR10P:
-		return V4L2_PIX_FMT_SBGGR10P;
-	case MP_PIXEL_FMT_BGGR10:
-		return V4L2_PIX_FMT_SBGGR10;
-	case MP_PIXEL_FMT_GRBG10:
-		return V4L2_PIX_FMT_SGRBG10;
-	case MP_PIXEL_FMT_GBRG10:
-		return V4L2_PIX_FMT_SGBRG10;
-	case MP_PIXEL_FMT_RGGB10:
-		return V4L2_PIX_FMT_SRGGB10;
-	case MP_PIXEL_FMT_BGGR8:
-		return V4L2_PIX_FMT_SBGGR8;
-	case MP_PIXEL_FMT_GRBG8:
-		return V4L2_PIX_FMT_SGRBG8;
-	default:
-		return 0;
-	}
-}
-
 static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
-	uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
-	g_printerr("format %d %x\n", mode->pixel_format, pixfmt);
+//mode->pixel_format = MP_PIXEL_FMT_GBRG10;
+	uint32_t pixfmt = mp_pixel_format_to_v4l_pixel_format(mode->pixel_format);
+	g_printerr("format %d %d %d %s\n", mode->pixel_format, pixfmt, V4L2_PIX_FMT_SGBRG10, mp_pixel_format_to_str(mode->pixel_format));
+	//exit(0);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -366,14 +373,16 @@ camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		fmt.fmt.pix.width = mode->width;
 		fmt.fmt.pix.height = mode->height;
-		fmt.fmt.pix.pixelformat = pixfmt;
+		fmt.fmt.pix.pixelformat = (pixfmt == V4L2_PIX_FMT_SGBRG10P) ? V4L2_PIX_FMT_SGBRG16 : V4L2_PIX_FMT_SGRBG8; // hack
 		fmt.fmt.pix.field = V4L2_FIELD_ANY;
+		//fmt.fmt.pix.colorspace = V4L2_COLORSPACE_RAW;
+		//printf("width %d height %d\n", mode->width, mode->height);//exit(0);
 	}
 
 	if (xioctl(camera->video_fd, request, &fmt) == -1) {
 		return false;
 	}
-
+//exit(0);
 	if (camera->use_mplane) {
 		mode->width = fmt.fmt.pix_mp.width;
 		mode->height = fmt.fmt.pix_mp.height;
@@ -653,7 +662,7 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 		buf.m.planes = planes;
 		buf.length = 1;
 	}
-
+//exit(0);
 	if (xioctl(camera->video_fd, VIDIOC_DQBUF, &buf) == -1) {
 		switch (errno) {
 		case EAGAIN:
@@ -677,7 +686,7 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 	} else {
 		bytesused = buf.bytesused;
 	}
-
+//printf("bytesused %d dexpected %d - %d %d fmt %d\n", bytesused, mp_pixel_format_width_to_bytes(pixel_format, width) * height, width, height, pixel_format);
 	assert(bytesused ==
 	       mp_pixel_format_width_to_bytes(pixel_format, width) * height);
 	assert(bytesused == camera->buffers[buf.index].length);
@@ -1184,7 +1193,7 @@ mp_control_list_free(MPControlList *list)
 }
 
 bool
-mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
+mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
 {
 	struct v4l2_query_ext_ctrl ctrl = {};
 	ctrl.id = id;
@@ -1213,39 +1222,8 @@ mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
 	return true;
 }
 
-bool
-mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
-{
-	struct v4l2_queryctrl ctrl = {
-		.id = id,
-	};
-	if (xioctl(control_fd(camera), VIDIOC_QUERYCTRL, &ctrl) == -1) {
-		if (errno != EINVAL) {
-			errno_printerr("VIDIOC_QUERYCTRL");
-		}
-		return false;
-	}
-
-	if (control) {
-		control->id = ctrl.id;
-		control->type = ctrl.type;
-		strcpy(control->name, (const char*)ctrl.name);
-		control->min = ctrl.minimum;
-		control->max = ctrl.maximum;
-		control->step = ctrl.step;
-		control->default_value = ctrl.default_value;
-		control->flags = ctrl.flags;
-		control->element_size = 0;
-		control->element_count = 0;
-		control->dimensions_count = 0;
-		//control->dimensions = skipped cause can't be assigned easily and unused anyway;
-	}
-	return true;
-}
-
-
 static bool
-control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *value)
+control_impl_int32(MPCamera *camera, uint32_t id, int request, int32_t *value)
 {
 	struct v4l2_ext_control ctrl = {};
 	ctrl.id = id;
@@ -1258,28 +1236,6 @@ control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *valu
 		.controls = &ctrl,
 	};
 	if (xioctl(control_fd(camera), request, &ctrls) == -1) {
-		return false;
-	}
-
-	*value = ctrl.value;
-	return true;
-}
-
-static bool
-control_impl_int32(MPCamera *camera, uint32_t id, unsigned long request, int32_t *value)
-{
-	struct v4l2_control ctrl = {
-		.id = id,
-		.value = *value,
-	};
-
-	if (request == VIDIOC_G_EXT_CTRLS) {
-		request = VIDIOC_G_CTRL;
-	} else if (request == VIDIOC_S_EXT_CTRLS) {
-		request = VIDIOC_S_CTRL;
-	}
-
-	if (xioctl(control_fd(camera), request, &ctrl) == -1) {
 		return false;
 	}
 

@@ -47,7 +47,7 @@ main(int argc, char *argv[])
 	double find_start = get_time();
 
 	// First find the device
-	MPDevice *device = mp_device_find(video_name);
+	MPDevice *device = mp_device_find(video_name, subdev_name);
 	if (!device) {
 		printf("Device not found\n");
 		return 1;
