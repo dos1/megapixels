@@ -54,7 +54,7 @@ struct _MPDevice {
 	struct media_v2_link *links;
 	size_t num_links;
 
-    char path[250];
+	char path[250];
 };
 
 static void
@@ -76,7 +76,7 @@ xioctl(int fd, int request, void *arg)
 MPDevice *
 mp_device_find(const char *driver_name)
 {
-    MPDeviceList *list = mp_device_list_new_legacy();
+	MPDeviceList *list = mp_device_list_new_legacy();
 
 	MPDevice *found_device = mp_device_list_find_remove(&list, driver_name);
 
@@ -94,7 +94,7 @@ mp_device_open(const char *path)
 		return NULL;
 	}
 
-    return mp_device_new_legacy(fd, path);
+	return mp_device_new_legacy(fd, path);
 }
 
 MPDevice *
@@ -146,39 +146,39 @@ mp_device_new(int fd)
 MPDevice *
 mp_device_new_legacy(int fd, const char *path)
 {
-    // Get the topology of the media device
-    struct media_v2_topology topology = {
-        .num_entities = 1,
-        .num_interfaces = 1,
-        .num_pads = 1,
-        .num_links = 1,
-    };
+	// Get the topology of the media device
+	struct media_v2_topology topology = {
+		.num_entities = 1,
+		.num_interfaces = 1,
+		.num_pads = 1,
+		.num_links = 1,
+	};
 
-    // Create the device
-    MPDevice *device = calloc(1, sizeof(MPDevice));
-    device->fd = fd;
-    device->entities =
-        calloc(topology.num_entities, sizeof(struct media_v2_entity));
-    device->num_entities = topology.num_entities;
-    device->interfaces =
-        calloc(topology.num_interfaces, sizeof(struct media_v2_interface));
-    device->num_interfaces = topology.num_interfaces;
-    device->pads = calloc(topology.num_pads, sizeof(struct media_v2_pad));
-    device->num_pads = topology.num_pads;
-    device->links = calloc(topology.num_links, sizeof(struct media_v2_link));
-    device->num_links = topology.num_links;
+	// Create the device
+	MPDevice *device = calloc(1, sizeof(MPDevice));
+	device->fd = fd;
+	device->entities =
+		calloc(topology.num_entities, sizeof(struct media_v2_entity));
+	device->num_entities = topology.num_entities;
+	device->interfaces =
+		calloc(topology.num_interfaces, sizeof(struct media_v2_interface));
+	device->num_interfaces = topology.num_interfaces;
+	device->pads = calloc(topology.num_pads, sizeof(struct media_v2_pad));
+	device->num_pads = topology.num_pads;
+	device->links = calloc(topology.num_links, sizeof(struct media_v2_link));
+	device->num_links = topology.num_links;
 
-    struct media_device_info info = {
-        .driver = "legacy",
-        .model = "legacy",
-        .serial = "",
-        .bus_info = "",
-    };
-    device->info = info;
+	struct media_device_info info = {
+		.driver = "legacy",
+		.model = "legacy",
+		.serial = "",
+		.bus_info = "",
+	};
+	device->info = info;
 
-    device->entities[0].function = MEDIA_ENT_F_IO_V4L;
-    strncpy(device->path, path, 240);
-    return device;
+	device->entities[0].function = MEDIA_ENT_F_IO_V4L;
+	strncpy(device->path, path, 240);
+	return device;
 }
 
 void
@@ -445,28 +445,28 @@ mp_device_list_new()
 MPDeviceList *
 mp_device_list_new_legacy()
 {
-    MPDeviceList *current = NULL;
+	MPDeviceList *current = NULL;
 
-    // Enumerate video files
-    struct dirent *dir;
-    DIR *d = opendir("/dev/v4l/by-path");
-    while ((dir = readdir(d)) != NULL) {
-        if (dir->d_type != DT_DIR) {
-            char path[512];
-            snprintf(path, 512, "/dev/v4l/by-path/%s", dir->d_name);
+	// Enumerate video files
+	struct dirent *dir;
+	DIR *d = opendir("/dev/v4l/by-path");
+	while ((dir = readdir(d)) != NULL) {
+		if (dir->d_type != DT_DIR) {
+		char path[512];
+		snprintf(path, 512, "/dev/v4l/by-path/%s", dir->d_name);
 
-            MPDevice *device = mp_device_open(path);
-            if (device) {
-                MPDeviceList *next = malloc(sizeof(MPDeviceList));
-                next->device = device;
-                next->next = current;
-                current = next;
-            }
-        }
-    }
-    closedir(d);
+		MPDevice *device = mp_device_open(path);
+		if (device) {
+			MPDeviceList *next = malloc(sizeof(MPDeviceList));
+			next->device = device;
+			next->next = current;
+			current = next;
+		}
+		}
+	}
+	closedir(d);
 
-    return current;
+	return current;
 }
 
 void
@@ -489,7 +489,7 @@ mp_device_list_find_remove(MPDeviceList **list, const char *driver_name)
 
 	while (*list) {
 		MPDevice *device = mp_device_list_get(*list);
-        if (strncmp(device->path, driver_name, length) == 0) {
+		if (strncmp(device->path, driver_name, length) == 0) {
 			found_device = mp_device_list_remove(list);
 			break;
 		}

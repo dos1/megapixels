@@ -11,9 +11,9 @@
 
 static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
 	"unsupported", "BGGR8",	"GBRG8", "GRBG8", "RGGB8",
-    "BGGR10P", "GBRG10P", "GRBG10P", "RGGB10P", 
-    "BGGR10", "GBRG10", "GRBG10", "RGGB10", 
-    "UYVY",  "YUYV",
+	"BGGR10P", "GBRG10P", "GRBG10P", "RGGB10P",
+	"BGGR10", "GBRG10", "GRBG10", "RGGB10",
+	"UYVY",  "YUYV",
 };
 
 const char *
@@ -40,7 +40,7 @@ static const uint32_t pixel_format_v4l_pixel_formats[MP_PIXEL_FMT_MAX] = {
 	V4L2_PIX_FMT_SGBRG8,
 	V4L2_PIX_FMT_SGRBG8,
 	V4L2_PIX_FMT_SRGGB8,
-    V4L2_PIX_FMT_SBGGR10P,
+	V4L2_PIX_FMT_SBGGR10P,
 	V4L2_PIX_FMT_SGBRG10P,
 	V4L2_PIX_FMT_SGRBG10P,
 	V4L2_PIX_FMT_SRGGB10P,
@@ -85,7 +85,7 @@ static const uint32_t pixel_format_v4l_bus_codes[MP_PIXEL_FMT_MAX] = {
 	MEDIA_BUS_FMT_SGRBG10_1X10,
 	MEDIA_BUS_FMT_SRGGB10_1X10,
 	MEDIA_BUS_FMT_UYVY8_2X8,
-    MEDIA_BUS_FMT_YUYV8_2X8,
+	MEDIA_BUS_FMT_YUYV8_2X8,
 };
 
 uint32_t
@@ -119,12 +119,12 @@ mp_pixel_format_bits_per_pixel(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GBRG10P:
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
-    case MP_PIXEL_FMT_BGGR10P:
-        return 10;
+	case MP_PIXEL_FMT_BGGR10P:
+		return 10;
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
-    case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_BGGR10:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return 16;
@@ -330,31 +330,31 @@ mp_camera_get_subdev_fd(MPCamera *camera)
 }
 
 static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
-    switch (fmt) {
-    case MP_PIXEL_FMT_BGGR10P:
-        return V4L2_PIX_FMT_SBGGR10P;
-    case MP_PIXEL_FMT_BGGR10:
-        return V4L2_PIX_FMT_SBGGR10;
-    case MP_PIXEL_FMT_GRBG10:
-        return V4L2_PIX_FMT_SGRBG10;
-    case MP_PIXEL_FMT_GBRG10:
-        return V4L2_PIX_FMT_SGBRG10;
-    case MP_PIXEL_FMT_RGGB10:
-        return V4L2_PIX_FMT_SRGGB10;
-    case MP_PIXEL_FMT_BGGR8:
-        return V4L2_PIX_FMT_SBGGR8;
-    case MP_PIXEL_FMT_GRBG8:
-        return V4L2_PIX_FMT_SGRBG8;
-    default:
-        return 0;
-    }
+	switch (fmt) {
+	case MP_PIXEL_FMT_BGGR10P:
+		return V4L2_PIX_FMT_SBGGR10P;
+	case MP_PIXEL_FMT_BGGR10:
+		return V4L2_PIX_FMT_SBGGR10;
+	case MP_PIXEL_FMT_GRBG10:
+		return V4L2_PIX_FMT_SGRBG10;
+	case MP_PIXEL_FMT_GBRG10:
+		return V4L2_PIX_FMT_SGBRG10;
+	case MP_PIXEL_FMT_RGGB10:
+		return V4L2_PIX_FMT_SRGGB10;
+	case MP_PIXEL_FMT_BGGR8:
+		return V4L2_PIX_FMT_SBGGR8;
+	case MP_PIXEL_FMT_GRBG8:
+		return V4L2_PIX_FMT_SGRBG8;
+	default:
+		return 0;
+	}
 }
 
 static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
-    uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
-    g_printerr("format %d %x\n", mode->pixel_format, pixfmt);
+	uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
+	g_printerr("format %d %x\n", mode->pixel_format, pixfmt);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -413,9 +413,9 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		struct v4l2_subdev_frame_interval interval = {};
 		interval.pad = 0;
 		interval.interval = mode->frame_interval;
-        // This can fail and is quite normal
+		// This can fail and is quite normal
 /*
-        if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
+		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
 			   &interval) == -1) {
 			errno_printerr("VIDIOC_SUBDEV_S_FRAME_INTERVAL");
 			return false;
@@ -603,9 +603,9 @@ error:
 bool
 mp_camera_stop_capture(MPCamera *camera)
 {
-    if (!camera) {
-        return false;
-    }
+	if (!camera) {
+		return false;
+	}
 	g_return_val_if_fail(camera->num_buffers > 0, false);
 
 	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -678,9 +678,9 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 		bytesused = buf.bytesused;
 	}
 
-    assert(bytesused ==
-           mp_pixel_format_width_to_bytes(pixel_format, width) * height);
-    assert(bytesused == camera->buffers[buf.index].length);
+	assert(bytesused ==
+	       mp_pixel_format_width_to_bytes(pixel_format, width) * height);
+	assert(bytesused == camera->buffers[buf.index].length);
 
 	MPImage image = {
 		.pixel_format = pixel_format,
@@ -1216,31 +1216,31 @@ mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
 bool
 mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
 {
-    struct v4l2_queryctrl ctrl = {
-        .id = id,
-    };
-    if (xioctl(control_fd(camera), VIDIOC_QUERYCTRL, &ctrl) == -1) {
-        if (errno != EINVAL) {
-            errno_printerr("VIDIOC_QUERYCTRL");
-        }
-        return false;
-    }
+	struct v4l2_queryctrl ctrl = {
+		.id = id,
+	};
+	if (xioctl(control_fd(camera), VIDIOC_QUERYCTRL, &ctrl) == -1) {
+		if (errno != EINVAL) {
+			errno_printerr("VIDIOC_QUERYCTRL");
+		}
+		return false;
+	}
 
-    if (control) {
-        control->id = ctrl.id;
-        control->type = ctrl.type;
-        strcpy(control->name, (const char*)ctrl.name);
-        control->min = ctrl.minimum;
-        control->max = ctrl.maximum;
-        control->step = ctrl.step;
-        control->default_value = ctrl.default_value;
-        control->flags = ctrl.flags;
-        control->element_size = 0;
-        control->element_count = 0;
-        control->dimensions_count = 0;
-        //control->dimensions = skipped cause can't be assigned easily and unused anyway;
-    }
-    return true;
+	if (control) {
+		control->id = ctrl.id;
+		control->type = ctrl.type;
+		strcpy(control->name, (const char*)ctrl.name);
+		control->min = ctrl.minimum;
+		control->max = ctrl.maximum;
+		control->step = ctrl.step;
+		control->default_value = ctrl.default_value;
+		control->flags = ctrl.flags;
+		control->element_size = 0;
+		control->element_count = 0;
+		control->dimensions_count = 0;
+		//control->dimensions = skipped cause can't be assigned easily and unused anyway;
+	}
+	return true;
 }
 
 
@@ -1268,23 +1268,23 @@ control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *valu
 static bool
 control_impl_int32(MPCamera *camera, uint32_t id, unsigned long request, int32_t *value)
 {
-    struct v4l2_control ctrl = {
-        .id = id,
-        .value = *value,
-    };
+	struct v4l2_control ctrl = {
+		.id = id,
+		.value = *value,
+	};
 
-    if (request == VIDIOC_G_EXT_CTRLS) {
-        request = VIDIOC_G_CTRL;
-    } else if (request == VIDIOC_S_EXT_CTRLS) {
-        request = VIDIOC_S_CTRL;
-    }
+	if (request == VIDIOC_G_EXT_CTRLS) {
+		request = VIDIOC_G_CTRL;
+	} else if (request == VIDIOC_S_EXT_CTRLS) {
+		request = VIDIOC_S_CTRL;
+	}
 
-    if (xioctl(control_fd(camera), request, &ctrl) == -1) {
-        return false;
-    }
+	if (xioctl(control_fd(camera), request, &ctrl) == -1) {
+		return false;
+	}
 
-    *value = ctrl.value;
-    return true;
+	*value = ctrl.value;
+	return true;
 }
 
 // this wasn't used?
@@ -1306,9 +1306,9 @@ int32_t
 mp_camera_control_get_int32(MPCamera *camera, uint32_t id)
 {
 	int32_t v = 0;
-    if (!camera) {
-        return 0;
-    }
+	if (!camera) {
+		return 0;
+	}
 	control_impl_int32(camera, id, VIDIOC_G_EXT_CTRLS, &v);
 	return v;
 }
