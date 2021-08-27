@@ -755,6 +755,7 @@ main(int argc, char *argv[])
 	setenv("LC_NUMERIC", "C", 1);
 
 	gtk_init(&argc, &argv);
+	g_set_prgname("org.postmarketos.Megapixels");
 	g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme",
 		     TRUE, NULL);
 	GtkBuilder *builder = gtk_builder_new_from_resource(
