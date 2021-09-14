@@ -353,11 +353,7 @@ capture(MPPipeline *pipeline, const void *data)
 
 		mp_camera_start_capture(info->camera);
 		if (camera->hasfocus) {
-			// Workaround: streamon is the call which wakes up the camera from sleep.
-			// Most changes get applied now using controls, but focus isn't yet one.
-			char buf[42] = {};
-			snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(desired_controls.focus >> 8), (uint8_t)(desired_controls.focus & 0xff));
-			g_spawn_command_line_async(buf, NULL);
+			mp_write_dw9714_focus(desired_controls.focus);
 		}
 	}
 
@@ -515,13 +511,9 @@ on_frame(MPImage image, void *data)
 				mp_camera_start_capture(info->camera);
 			}
 
-			if (camera->hasfocus){
+			if (camera->hasfocus) {
 				printf("preview mode, set focus\n");
-				// Workaround: streamon is the call which wakes up the camera from sleep.
-				// Most changes get applied now using controls, but focus isn't yet one.
-				char buf[42] = {};
-				snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(desired_controls.focus >> 8), (uint8_t)(desired_controls.focus & 0xff));
-				g_spawn_command_line_async(buf, NULL);
+				mp_write_dw9714_focus(desired_controls.focus);
 			}
 
 			update_process_pipeline();
