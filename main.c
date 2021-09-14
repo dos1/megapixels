@@ -44,8 +44,11 @@ static int exposure;
 static int exposure_max;
 static int exposure_min;
 
-static int focus = 3500;
-
+/*
+ * TODO calc default from control min/max values, but for dw9714 0 is far,
+ * 1023 is near; set the default in between.
+ */
+static int focus = 250;
 static int wb = 3;
 
 static bool has_auto_focus_continuous;
@@ -127,9 +130,7 @@ update_state(const struct mp_main_state *state)
 			has_auto_focus_continuous = state->has_auto_focus_continuous;
 			has_auto_focus_start = state->has_auto_focus_start;
 			if (camera->hasfocus) {
-				char buf[42] = {};
-				snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(focus >> 8), (uint8_t)(focus & 0xff));
-				g_spawn_command_line_async(buf, NULL);
+				mp_write_dw9714_focus(focus);
 			}
 		}
 	}
@@ -618,8 +619,8 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_auto),
 						     false);
 			gtk_adjustment_set_lower(control_slider, 0.0);
-			gtk_adjustment_set_upper(control_slider, 16383);
-			gtk_adjustment_set_value(control_slider, 16383 - focus);
+			gtk_adjustment_set_upper(control_slider, DW9714_FOCUS_VAL_MAX);
+			gtk_adjustment_set_value(control_slider, DW9714_FOCUS_VAL_MAX - focus);
 		}
 		gtk_widget_show(control_box);
 
@@ -724,11 +725,9 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 	}
 	case USER_CONTROL_FOCUS:
 		if (value != focus) {
-			focus = 16383 - value;
+			focus = DW9714_FOCUS_VAL_MAX - value;
 			has_changed = true;
-			char buf[42] = {};
-			snprintf(buf, 42, "sudo i2ctransfer -f -y 3 w2@0xc 0x%02x 0x%02x", (uint8_t)(focus >> 8), (uint8_t)(focus & 0xff));
-			g_spawn_command_line_async(buf, NULL);
+			mp_write_dw9714_focus(focus);
 		}
 		break;
 	}
