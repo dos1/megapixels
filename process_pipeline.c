@@ -29,8 +29,6 @@ static volatile int frames_received = 0;
 
 static const struct mp_camera_config *camera;
 
-static MPCameraMode mode;
-
 static int burst_length;
 static int captures_remaining = 0;
 
@@ -463,8 +461,6 @@ process_capture_burst(cairo_surface_t *thumb)
 static void
 process_image(MPPipeline *pipeline, const MPImage *image)
 {
-	assert(image->width == mode.width && image->height == mode.height);
-
 	cairo_surface_t *thumb = process_image_for_preview(image);
 
 	if (captures_remaining > 0) {
@@ -536,7 +532,6 @@ static void
 update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state)
 {
 	camera = state->camera;
-	mode = state->mode;
 
 	burst_length = state->burst_length;
 
@@ -558,7 +553,7 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 
 	struct mp_main_state main_state = {
 		.camera = camera,
-		.mode = mode,
+		.mode = state->mode,
 		.is_present = state->is_present,
 		.gain_is_manual = state->gain_is_manual,
 		.gain = gain,
