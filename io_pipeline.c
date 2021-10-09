@@ -199,7 +199,7 @@ printf("devname %s\n", dev_name);
 		}
 
 		//info->fd = dev_info->video_fd;
-		info->camera = mp_camera_new(dev_info->video_fd, info->fd);
+		info->camera = mp_camera_new(dev_info->video_fd, info->fd, config->libcamera_id);
 
 		// Trigger continuous auto focus if the sensor supports it
 		if (mp_camera_query_control(info->camera, V4L2_CID_FOCUS_AUTO,

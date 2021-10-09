@@ -21,6 +21,7 @@ struct mp_camera_config {
 	char cfg_name[100];
 	char dev_name[260];
 	char media_dev_name[260];
+	char libcamera_id[260];
 
 	MPCameraMode capture_mode;
 	MPCameraMode preview_mode;

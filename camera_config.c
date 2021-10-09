@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <glib.h>
 #include <assert.h>
+#include <bsd/string.h>
 
 static struct mp_camera_config cameras[MP_MAX_CAMERAS];
 static size_t num_cameras = 0;
@@ -168,6 +169,8 @@ config_ini_handler(void *user, const char *section, const char *name,
 			strcpy(cc->dev_name, value);
 		} else if (strcmp(name, "media-driver") == 0) {
 			strcpy(cc->media_dev_name, value);
+		} else if (strcmp(name, "libcamera-id") == 0) {
+			strlcpy(cc->libcamera_id, value, 260);
 		} else if (strcmp(name, "media-links") == 0) {
 			char **linkdefs = g_strsplit(value, ",", 0);
 

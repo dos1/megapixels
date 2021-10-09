@@ -285,6 +285,7 @@ struct video_buffer {
 struct _MPCamera {
 	int video_fd;
 	int subdev_fd;
+	char id[260];
 
 	bool has_set_mode;
 	MPCameraMode current_mode;
@@ -296,7 +297,7 @@ struct _MPCamera {
 };
 
 MPCamera *
-mp_camera_new(int video_fd, int subdev_fd)
+mp_camera_new(int video_fd, int subdev_fd, const char libcamera_id[260])
 {
 	g_return_val_if_fail(video_fd != -1, NULL);
 
@@ -323,6 +324,7 @@ mp_camera_new(int video_fd, int subdev_fd)
 	camera->has_set_mode = false;
 	camera->num_buffers = 0;
 	camera->use_mplane = use_mplane;
+	memcpy(camera->id, libcamera_id, 260);
 	return camera;
 }
 
@@ -417,6 +419,7 @@ mp_camera_get_mode(const MPCamera *camera)
 bool
 mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 {
+
 	// Set the mode in the subdev the camera is one
 	if (mp_camera_is_subdev(camera)) {
 		struct v4l2_subdev_frame_interval interval = {};

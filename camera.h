@@ -46,7 +46,7 @@ uint32_t mp_pixel_format_height_to_colors(MPPixelFormat pixel_format,
 typedef struct {
 	MPPixelFormat pixel_format;
 
-	struct v4l2_fract frame_interval;
+	struct v4l2_fract frame_interval; // ignored
 	uint32_t width;
 	uint32_t height;
 } MPCameraMode;
@@ -62,7 +62,7 @@ typedef struct {
 
 typedef struct _MPCamera MPCamera;
 
-MPCamera *mp_camera_new(int video_fd, int subdev_fd);
+MPCamera *mp_camera_new(int video_fd, int subdev_fd, const char id[260]);
 void mp_camera_free(MPCamera *camera);
 
 bool mp_camera_is_subdev(MPCamera *camera);

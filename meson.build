@@ -1,4 +1,5 @@
 project('megapixels', 'c')
+bsd = dependency('libbsd')
 gnome = import('gnome')
 gtkdep = dependency('gtk+-3.0')
 tiff = dependency('libtiff-4')
@@ -40,7 +41,7 @@ executable('megapixels',
            'zbar_pipeline.c',
            'matrix.c',
            resources,
-           dependencies : [gtkdep, libm, tiff, zbar, threads],
+           dependencies : [bsd, gtkdep, libm, tiff, zbar, threads],
            install : true)
 
 install_data(['data/org.postmarketos.Megapixels.desktop'],
