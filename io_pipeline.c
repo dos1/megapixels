@@ -351,7 +351,7 @@ capture(MPPipeline *pipeline, const void *data)
 		mp_camera_stop_capture(info->camera);
 
 		mode = camera->capture_mode;
-		mp_camera_set_mode(info->camera, mode);
+		mp_camera_set_mode(info->camera, camera->capture_mode);
 		just_switched_mode = true;
 
 		mp_camera_start_capture(info->camera);

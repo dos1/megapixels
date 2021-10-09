@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <linux/v4l2-subdev.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -130,3 +134,8 @@ int32_t mp_camera_control_get_int32(MPCamera *camera, uint32_t id);
 bool mp_camera_control_try_bool(MPCamera *camera, uint32_t id, bool *v);
 bool mp_camera_control_set_bool(MPCamera *camera, uint32_t id, bool v);
 bool mp_camera_control_get_bool(MPCamera *camera, uint32_t id);
+
+
+#ifdef __cplusplus
+}
+#endif

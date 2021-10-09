@@ -1,5 +1,7 @@
-project('megapixels', 'c')
+project('megapixels', 'c', 'cpp',
+    default_options: ['cpp_std=c++17']) # C++ doesn't seem to take effect
 bsd = dependency('libbsd')
+camera = dependency('libcamera')
 gnome = import('gnome')
 gtkdep = dependency('gtk+-3.0')
 tiff = dependency('libtiff-4')
@@ -40,9 +42,12 @@ executable('megapixels',
            'process_pipeline.c',
            'zbar_pipeline.c',
            'matrix.c',
+           'src/libcam.cpp',
            resources,
-           dependencies : [bsd, gtkdep, libm, tiff, zbar, threads],
-           install : true)
+           dependencies : [bsd, camera, gtkdep, libm, tiff, zbar, threads],
+           install : true,
+           override_options : ['cpp_std=c++17'],
+)
 
 install_data(['data/org.postmarketos.Megapixels.desktop'],
              install_dir : get_option('datadir') / 'applications')
@@ -71,7 +76,20 @@ install_data(['postprocess.sh'],
 
 # Tools
 executable('megapixels-list-devices', 'tools/list_devices.c', 'device.c', dependencies: [gtkdep], install: true)
-executable('megapixels-camera-test', 'tools/camera_test.c', 'camera.c', 'device.c', dependencies: [gtkdep], install: true)
+executable('megapixels-camera-test',
+    'tools/camera_test.c',
+    'camera.c',
+    'device.c',
+    'src/libcam.cpp',
+    dependencies: [camera, gtkdep], install: true,
+    override_options : ['cpp_std=c++17'],)
 
-test_quickpreview = executable('test_quickpreview', 'tests/test_quickpreview.c', 'quickpreview.c', 'camera.c', 'matrix.c', dependencies: [gtkdep])
+test_quickpreview = executable('test_quickpreview',
+    'tests/test_quickpreview.c',
+    'quickpreview.c',
+    'camera.c',
+    'matrix.c',
+    'src/libcam.cpp',
+    dependencies: [camera, gtkdep],
+    override_options : ['cpp_std=c++17'],)
 #test('quickpreview', test_quickpreview)
