@@ -287,7 +287,6 @@ struct _MPCamera {
 	int subdev_fd;
 	char id[260];
 
-	bool has_set_mode;
 	MPCameraMode current_mode;
 
 	struct video_buffer buffers[MAX_VIDEO_BUFFERS];
@@ -321,7 +320,7 @@ mp_camera_new(int video_fd, int subdev_fd, const char libcamera_id[260])
 	MPCamera *camera = malloc(sizeof(MPCamera));
 	camera->video_fd = video_fd;
 	camera->subdev_fd = subdev_fd;
-	camera->has_set_mode = false;
+	camera->current_mode = mp_camera_mode_new_invalid();
 	camera->num_buffers = 0;
 	camera->use_mplane = use_mplane;
 	memcpy(camera->id, libcamera_id, 260);
@@ -399,6 +398,12 @@ camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 
 	return true;
 }
+
+MPCameraMode mp_camera_mode_new_invalid(void) {
+	MPCameraMode invalid = {0};
+	return invalid;
+}
+
 
 bool
 mp_camera_try_mode(MPCamera *camera, MPCameraMode *mode)
@@ -479,7 +484,6 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		}
 	}
 
-	camera->has_set_mode = true;
 	camera->current_mode = *mode;
 
 	return true;
@@ -488,7 +492,7 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 bool
 mp_camera_start_capture(MPCamera *camera)
 {
-	g_return_val_if_fail(camera->has_set_mode, false);
+	g_return_val_if_fail(mp_camera_mode_is_valid(camera->current_mode), false);
 	g_return_val_if_fail(camera->num_buffers == 0, false);
 
 	enum v4l2_buf_type buftype = V4L2_BUF_TYPE_VIDEO_CAPTURE;

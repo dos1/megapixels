@@ -51,6 +51,12 @@ typedef struct {
 	uint32_t height;
 } MPCameraMode;
 
+static inline bool mp_camera_mode_is_valid(MPCameraMode m) {
+	return !(m.width == 0 && m.height == 0);
+}
+
+MPCameraMode mp_camera_mode_new_invalid(void);
+
 bool mp_camera_mode_is_equivalent(const MPCameraMode *m1, const MPCameraMode *m2);
 
 typedef struct {
