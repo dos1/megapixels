@@ -78,7 +78,7 @@ int mp_camera_get_subdev_fd(MPCamera *camera);
 const MPCameraMode *mp_camera_get_mode(const MPCamera *camera);
 bool mp_camera_try_mode(MPCamera *camera, MPCameraMode *mode);
 
-bool mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode);
+bool mp_camera_set_mode(MPCamera *camera, MPCameraMode mode);
 bool mp_camera_start_capture(MPCamera *camera);
 bool mp_camera_stop_capture(MPCamera *camera);
 bool mp_camera_is_capturing(MPCamera *camera);

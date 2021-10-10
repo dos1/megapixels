@@ -351,7 +351,7 @@ capture(MPPipeline *pipeline, const void *data)
 		mp_camera_stop_capture(info->camera);
 
 		mode = camera->capture_mode;
-		mp_camera_set_mode(info->camera, &mode);
+		mp_camera_set_mode(info->camera, mode);
 		just_switched_mode = true;
 
 		mp_camera_start_capture(info->camera);
@@ -508,7 +508,7 @@ on_frame(MPImage image, void *data)
 				mp_camera_stop_capture(info->camera);
 
 				mode = camera->preview_mode;
-				mp_camera_set_mode(info->camera, &mode);
+				mp_camera_set_mode(info->camera, mode);
 				just_switched_mode = true;
 
 				mp_camera_start_capture(info->camera);
@@ -562,7 +562,7 @@ update_state(MPPipeline *pipeline, const struct mp_io_pipeline_state *state)
 					     dev_info->interface_pad_id, true);
 
 			mode = camera->preview_mode;
-			if (!mp_camera_set_mode(info->camera, &mode)) {
+			if (!mp_camera_set_mode(info->camera, mode)) {
 				// HACK:
 				// The Librem 5 cameras support setting mode,
 				// but also fail when the camera was off while booting

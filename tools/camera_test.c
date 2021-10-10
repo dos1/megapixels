@@ -177,7 +177,7 @@ main(int argc, char *argv[])
 
 		double start_capture = get_time();
 
-		mp_camera_set_mode(camera, m);
+		mp_camera_set_mode(camera, *m);
 		mp_camera_start_capture(camera);
 
 		double last = get_time();

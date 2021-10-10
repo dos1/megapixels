@@ -422,14 +422,14 @@ mp_camera_get_mode(const MPCamera *camera)
 }
 
 bool
-mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
+mp_camera_set_mode(MPCamera *camera, MPCameraMode mode)
 {
 
 	// Set the mode in the subdev the camera is one
 	if (mp_camera_is_subdev(camera)) {
 		struct v4l2_subdev_frame_interval interval = {};
 		interval.pad = 0;
-		interval.interval = mode->frame_interval;
+		interval.interval = mode.frame_interval;
 		// This can fail and is quite normal
 /*
 		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
@@ -439,17 +439,17 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		}
 */
 		bool did_set_frame_rate = interval.interval.numerator ==
-						  mode->frame_interval.numerator &&
+						  mode.frame_interval.numerator &&
 					  interval.interval.denominator ==
-						  mode->frame_interval.denominator;
+						  mode.frame_interval.denominator;
 
 		struct v4l2_subdev_format fmt = {};
 		fmt.pad = 0;
 		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		fmt.format.width = mode->width;
-		fmt.format.height = mode->height;
+		fmt.format.width = mode.width;
+		fmt.format.height = mode.height;
 		fmt.format.code =
-			mp_pixel_format_to_v4l_bus_code(mode->pixel_format);
+			mp_pixel_format_to_v4l_bus_code(mode.pixel_format);
 		fmt.format.field = V4L2_FIELD_ANY;
 		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FMT, &fmt) == -1) {
 			errno_printerr("VIDIOC_SUBDEV_S_FMT");
@@ -461,7 +461,7 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		// after the format change. So we need to try again here if we didn't
 		// succeed before. Ideally we'd be able to set both at once.
 		if (!did_set_frame_rate) {
-			interval.interval = mode->frame_interval;
+			interval.interval = mode.frame_interval;
 			if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
 				   &interval) == -1) {
 				errno_printerr("VIDIOC_SUBDEV_S_FRAME_INTERVAL");
@@ -469,22 +469,22 @@ mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
 		}
 
 		// Update the mode
-		mode->pixel_format =
+		mode.pixel_format =
 			mp_pixel_format_from_v4l_bus_code(fmt.format.code);
-		mode->frame_interval = interval.interval;
-		mode->width = fmt.format.width;
-		mode->height = fmt.format.height;
+		mode.frame_interval = interval.interval;
+		mode.width = fmt.format.width;
+		mode.height = fmt.format.height;
 	}
 
 	// Set the mode for the video device
 	{
-		if (!camera_mode_impl(camera, VIDIOC_S_FMT, mode)) {
+		if (!camera_mode_impl(camera, VIDIOC_S_FMT, &mode)) {
 			errno_printerr("VIDIOC_S_FMT");
 			return false;
 		}
 	}
 
-	camera->current_mode = *mode;
+	camera->current_mode = mode;
 
 	return true;
 }
