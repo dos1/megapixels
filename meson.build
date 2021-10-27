@@ -1,4 +1,5 @@
-project('megapixels', 'c', 'cpp',
+project('millipixels', 'c', 'cpp',
+    version: '0.17.0',
     default_options: ['cpp_std=c++17']) # C++ doesn't seem to take effect
 bsd = dependency('libbsd')
 camera = dependency('libcamera')

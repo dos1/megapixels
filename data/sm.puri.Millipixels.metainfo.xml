@@ -1,35 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2020 Martijn Braam -->
+<!-- Copyright 2020 Martijn Braam
+Copyright 2021 Purism -->
 <component type="desktop-application">
-	<id>org.postmarketos.Megapixels</id>
+	<id>sm.puri.Millipixels</id>
 	<metadata_license>CC0-1.0</metadata_license>
 	<project_license>GPL-3.0</project_license>
-	<name>Megapixels</name>
+	<name>Millipixels</name>
 	<summary>A gnome camera application for phones</summary>
 	<description>
 		<p>
-			Megapixels is a camera application designed for phones and tablets. It
-			implements the v4l2 and media-request apis so set up camera pipelines on
-			ARM hardware and uses the raw data modes of the sensors to get the best
-			quality pictures.
+			Millipixels is a fork of Megapixels for the Librem 5.
+			Its goal is to use libcamera.
+			Currently, it uses the v4l2 and media-request apis to set up camera pipelines.
 		</p>
 	</description>
-	<launchable type="desktop-id">org.postmarketos.Megapixels.desktop</launchable>
+	<launchable type="desktop-id">sm.puri.Millipixels.desktop</launchable>
 	<provides>
-		<binary>megapixels</binary>
+		<binary>millipixels</binary>
 	</provides>
 	<screenshots>
 		<screenshot type="default">
 			<image>http://brixitcdn.net/metainfo/megapixels.png</image>
 		</screenshot>
 	</screenshots>
-	<url type="homepage">https://sr.ht/~martijnbraam/megapixels</url>
+	<url type="homepage">https://source.puri.sm/Librem5/megapixels/</url>
 	<content_rating type="oars-1.1" />
 	<custom>
 		<value key="Purism::form_factor">workstation</value>
 		<value key="Purism::form_factor">mobile</value>
 	</custom>
 	<releases>
+    	<release version="0.17.0" date="2021-10-02">
+    	    <description>
+    	        First Millipixels version.
+    	    </description>
+    	</release>
 		<release version="0.14.0" date="2021-01-11">
 			<description>
 				<p>
