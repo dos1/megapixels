@@ -30,7 +30,7 @@ if get_option('tiffcfapattern')
   add_global_arguments('-DLIBTIFF_CFA_PATTERN', language: 'c')
 endif
 
-executable('megapixels',
+executable('millipixels',
            'main.c',
            'ini.c',
            'quickpreview.c',
@@ -49,13 +49,13 @@ executable('megapixels',
            override_options : ['cpp_std=c++17'],
 )
 
-install_data(['data/org.postmarketos.Megapixels.desktop'],
+install_data(['data/sm.puri.Millipixels.desktop'],
              install_dir : get_option('datadir') / 'applications')
 
-install_data(['data/org.postmarketos.Megapixels.metainfo.xml'],
+install_data(['data/sm.puri.Millipixels.metainfo.xml'],
              install_dir : get_option('datadir') / 'metainfo')
 
-install_data('data/org.postmarketos.Megapixels.svg',
+install_data('data/sm.puri.Millipixels.svg',
   install_dir: join_paths(get_option('datadir'), 'icons/hicolor/scalable/apps')
 )
 
@@ -68,15 +68,15 @@ install_data([
   'config/purism,librem5r3.ini',
   'config/purism,librem5r4.ini',
   ],
-  install_dir : get_option('datadir') / 'megapixels/config/')
+  install_dir : get_option('datadir') / 'millipixels/config/')
 
 install_data(['postprocess.sh'],
-  install_dir : get_option('datadir') / 'megapixels/',
+  install_dir : get_option('datadir') / 'millipixels/',
   install_mode: 'rwxr-xr-x')
 
 # Tools
-executable('megapixels-list-devices', 'tools/list_devices.c', 'device.c', dependencies: [gtkdep], install: true)
-executable('megapixels-camera-test',
+executable('millipixels-list-devices', 'tools/list_devices.c', 'device.c', dependencies: [gtkdep], install: true)
+executable('millipixels-camera-test',
     'tools/camera_test.c',
     'camera.c',
     'device.c',

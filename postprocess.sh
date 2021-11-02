@@ -73,7 +73,7 @@ if [ -n "$DCRAW" ]; then
 		if command -v exiftool > /dev/null
 		then
 			exiftool -tagsFromfile "$MAIN_PICTURE.$TIFF_EXT" \
-				 -software="Megapixels" \
+				 -software="Millipixels" \
 				 -overwrite_original "$TARGET_NAME.jpg"
 		fi
 

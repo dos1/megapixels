@@ -13,6 +13,8 @@
 #include <wordexp.h>
 #include <gtk/gtk.h>
 
+#define SCRIPT_FORMAT "%s/millipixels/%s"
+
 #define TIFFTAG_FORWARDMATRIX1 50964
 
 static const float colormatrix_srgb[] = { 3.2409, -1.5373, -0.4986, -0.9692, 1.8759,
@@ -112,21 +114,21 @@ find_processor(char *script)
 	}
 
 	// Check for a script in XDG_CONFIG_HOME
-	sprintf(script, "%s/megapixels/%s", xdg_config_home, filename);
+	sprintf(script, SCRIPT_FORMAT, xdg_config_home, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
 	}
 
 	// Check user overridden /etc/megapixels/postprocessor.sh
-	sprintf(script, "%s/megapixels/%s", SYSCONFDIR, filename);
+	sprintf(script, SCRIPT_FORMAT, SYSCONFDIR, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
 	}
 
 	// Check packaged /usr/share/megapixels/postprocessor.sh
-	sprintf(script, "%s/megapixels/%s", DATADIR, filename);
+	sprintf(script, SCRIPT_FORMAT, DATADIR, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
@@ -251,7 +253,7 @@ process_image_for_capture(const MPImage *image, int count)
 	int extrasamples = EXTRASAMPLE_UNSPECIFIED;
 	TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &extrasamples);
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-	TIFFSetField(tif, TIFFTAG_SOFTWARE, "Megapixels");
+	TIFFSetField(tif, TIFFTAG_SOFTWARE, "Millipixels");
 	long sub_offset = 0;
 	TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &sub_offset);
 	TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\0\0");
