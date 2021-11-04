@@ -23,7 +23,6 @@ static const float colormatrix_srgb[] = { 3.2409, -1.5373, -0.4986, -0.9692, 1.8
 static MPPipeline *pipeline;
 
 static char burst_dir[23];
-static char processing_script[512];
 
 static volatile bool is_capturing = false;
 static volatile int frames_processed = 0;
@@ -140,7 +139,7 @@ setup(MPPipeline *pipeline, const void *data)
 {
 	TIFFSetTagExtender(register_custom_tiff_tags);
 
-	if (!find_processor(processing_script)) {
+	if (!find_processor(pipeline->processing_script)) {
 		g_printerr("Could not find any post-process script\n");
 		exit(1);
 	}
@@ -440,7 +439,7 @@ process_capture_burst(cairo_surface_t *thumb)
 	GSubprocess *proc = g_subprocess_new(
 		G_SUBPROCESS_FLAGS_STDOUT_PIPE,
 		&error,
-		processing_script,
+		pipeline->processing_script,
 		burst_dir,
 		capture_fname,
 		NULL);

@@ -4,12 +4,6 @@
 #include <glib-unix.h>
 #include <assert.h>
 
-struct _MPPipeline {
-	GMainContext *main_context;
-	GMainLoop *main_loop;
-	pthread_t thread;
-};
-
 static void *
 thread_main_loop(void *arg)
 {
