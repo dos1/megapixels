@@ -13,6 +13,8 @@
 #include <wordexp.h>
 #include <gtk/gtk.h>
 
+#include "src/postproc.h"
+
 #define SCRIPT_FORMAT "%s/millipixels/%s"
 
 #define TIFFTAG_FORWARDMATRIX1 50964
@@ -166,7 +168,6 @@ mp_process_pipeline_start()
 	module.pipeline = mp_pipeline_new();
 
 	mp_pipeline_invoke(module.pipeline, setup, NULL, 0);
-
 
 	mp_zbar_pipeline_start();
 }
@@ -397,29 +398,6 @@ process_image_for_capture(const MPImage *image, int count)
 }
 
 static void
-post_process_finished(GSubprocess *proc, GAsyncResult *res, cairo_surface_t *thumb)
-{
-	char *stdout;
-	g_subprocess_communicate_utf8_finish(proc, res, &stdout, NULL, NULL);
-
-	// The last line contains the file name
-	int end = strlen(stdout);
-	// Skip the newline at the end
-	stdout[--end] = '\0';
-
-	char *path = path = stdout + end - 1;
-	do {
-		if (*path == '\n') {
-			path++;
-			break;
-		}
-		--path;
-	} while (path > stdout);
-
-	mp_main_capture_completed(thumb, path);
-}
-
-static void
 process_capture_burst(cairo_surface_t *thumb, char *burst_dir, char *processing_script)
 {
 	static char capture_fname[255];
@@ -447,30 +425,10 @@ process_capture_burst(cairo_surface_t *thumb, char *burst_dir, char *processing_
 			timestamp);
 	}
 
-
 	// Start post-processing the captured burst
 	g_print("Post process %s to %s.ext\n", burst_dir, capture_fname);
-	GError *error = NULL;
-	GSubprocess *proc = g_subprocess_new(
-		G_SUBPROCESS_FLAGS_STDOUT_PIPE,
-		&error,
-		processing_script,
-		burst_dir,
-		capture_fname,
-		NULL);
 
-	if (!proc) {
-		g_printerr("Failed to spawn postprocess process: %s\n",
-			   error->message);
-		return;
-	}
-
-	g_subprocess_communicate_utf8_async(
-		proc,
-		NULL,
-		NULL,
-		(GAsyncReadyCallback)post_process_finished,
-		thumb);
+	spawn_post_process_task(processing_script, burst_dir, capture_fname, thumb);
 }
 
 static void

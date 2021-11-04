@@ -259,6 +259,11 @@ mp_main_capture_completed(cairo_surface_t *thumb, const char *fname)
 				   (GSourceFunc)capture_completed, args, free);
 }
 
+void
+notify_processing_finished(cairo_surface_t *thumb) {
+	mp_main_capture_completed(thumb, "");
+}
+
 static void
 draw_controls()
 {

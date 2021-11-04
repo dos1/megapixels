@@ -1,4 +1,4 @@
-project('millipixels', 'c', 'cpp',
+project('millipixels', 'c', 'cpp', 'rust',
     version: '0.17.0',
     default_options: ['cpp_std=c++17']) # C++ doesn't seem to take effect
 bsd = dependency('libbsd')
@@ -31,6 +31,18 @@ if get_option('tiffcfapattern')
   add_global_arguments('-DLIBTIFF_CFA_PATTERN', language: 'c')
 endif
 
+rust_lib = static_library('millrust',
+    'src/postproc.rs',
+    rust_crate_type : 'staticlib'
+)
+
+# Create a list of dependencies required by Rust.
+# The dl library is required by Rust to link the library.
+rust_deps = [
+  meson.get_compiler('c').find_library('dl', required: false),
+  dependency('threads'),
+]
+
 executable('millipixels',
            'main.c',
            'ini.c',
@@ -45,8 +57,11 @@ executable('millipixels',
            'matrix.c',
            'src/libcam.cpp',
            resources,
-           dependencies : [bsd, camera, gtkdep, libm, tiff, zbar, threads],
+           dependencies: [
+            bsd, camera, gtkdep, libm, tiff, zbar, threads,
+           ] + rust_deps,
            install : true,
+           link_with: [rust_lib],
            override_options : ['cpp_std=c++17'],
 )
 
