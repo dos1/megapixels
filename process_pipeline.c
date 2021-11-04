@@ -28,6 +28,7 @@ struct module {
 	MPPipeline *pipeline;
 
 	char burst_dir[23];
+	char processing_script[512];
 
 	// FIXME: volatile is dangerous, use atomics instead.
 	volatile bool is_capturing;
@@ -153,7 +154,7 @@ setup(MPPipeline *pipeline, const void *data)
 {
 	TIFFSetTagExtender(register_custom_tiff_tags);
 
-	if (!find_processor(pipeline->processing_script)) {
+	if (!find_processor(module.processing_script)) {
 		g_printerr("Could not find any post-process script\n");
 		exit(1);
 	}
@@ -419,7 +420,7 @@ post_process_finished(GSubprocess *proc, GAsyncResult *res, cairo_surface_t *thu
 }
 
 static void
-process_capture_burst(cairo_surface_t *thumb)
+process_capture_burst(cairo_surface_t *thumb, char *burst_dir, char *processing_script)
 {
 	static char capture_fname[255];
 	time_t rawtime;
@@ -448,13 +449,13 @@ process_capture_burst(cairo_surface_t *thumb)
 
 
 	// Start post-processing the captured burst
-	g_print("Post process %s to %s.ext\n", module.burst_dir, capture_fname);
+	g_print("Post process %s to %s.ext\n", burst_dir, capture_fname);
 	GError *error = NULL;
 	GSubprocess *proc = g_subprocess_new(
 		G_SUBPROCESS_FLAGS_STDOUT_PIPE,
 		&error,
-		module.pipeline->processing_script,
-		module.burst_dir,
+		processing_script,
+		burst_dir,
 		capture_fname,
 		NULL);
 
@@ -485,7 +486,7 @@ process_image(MPPipeline *pipeline, const MPImage *image)
 
 		if (module.captures_remaining == 0) {
 			assert(thumb);
-			process_capture_burst(thumb);
+			process_capture_burst(thumb, module.burst_dir, module.processing_script);
 		} else {
 			assert(!thumb);
 		}
