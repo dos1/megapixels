@@ -38,6 +38,7 @@ invoke_impl(struct invoke_args *args)
 	return false;
 }
 
+/// Ensures the callback is run from the main context
 void
 mp_pipeline_invoke(MPPipeline *pipeline, MPPipelineCallback callback,
 		   const void *data, size_t size)
