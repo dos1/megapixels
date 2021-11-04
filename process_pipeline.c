@@ -50,8 +50,6 @@ static int exposure_min;
 static int wb;
 static int focus;
 
-static char capture_fname[255];
-
 static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
     "\002\001\001\000", // fallback
     "\002\001\001\000",//    "BGGR8",
@@ -410,6 +408,7 @@ post_process_finished(GSubprocess *proc, GAsyncResult *res, cairo_surface_t *thu
 static void
 process_capture_burst(cairo_surface_t *thumb)
 {
+	static char capture_fname[255];
 	time_t rawtime;
 	time(&rawtime);
 	struct tm tim = *(localtime(&rawtime));
