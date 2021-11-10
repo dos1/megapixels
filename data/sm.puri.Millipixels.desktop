@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Millipixels
+Name=Camera (Dev Preview)
 Exec=millipixels /etc/millipixels.ini
 Terminal=false
 Type=Application
