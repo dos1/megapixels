@@ -47,7 +47,7 @@ main(int argc, char *argv[])
 	double find_start = get_time();
 
 	// First find the device
-	MPDevice *device = mp_device_find(video_name);
+	MPDevice *device = mp_device_find(video_name, subdev_name);
 	if (!device) {
 		printf("Device not found\n");
 		return 1;
@@ -136,7 +136,8 @@ main(int argc, char *argv[])
 
 	printf("Opening the device took %fms\n", (open_end - find_end) * 1000);
 
-	MPCamera *camera = mp_camera_new(video_fd, subdev_fd);
+	char name[260] = { 0 };
+	MPCamera *camera = mp_camera_new(video_fd, subdev_fd, name);
 
 	MPControlList *controls = mp_camera_list_controls(camera);
 
@@ -176,7 +177,7 @@ main(int argc, char *argv[])
 
 		double start_capture = get_time();
 
-		mp_camera_set_mode(camera, m);
+		mp_camera_set_mode(camera, *m);
 		mp_camera_start_capture(camera);
 
 		double last = get_time();

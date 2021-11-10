@@ -74,11 +74,11 @@ xioctl(int fd, int request, void *arg)
 }
 
 MPDevice *
-mp_device_find(const char *driver_name)
+mp_device_find(const char *driver_name, const char *dev_name)
 {
-	MPDeviceList *list = mp_device_list_new_legacy();
+	MPDeviceList *list = mp_device_list_new();
 
-	MPDevice *found_device = mp_device_list_find_remove(&list, driver_name);
+	MPDevice *found_device = mp_device_list_find_remove(&list, driver_name, dev_name);
 
 	mp_device_list_free(list);
 
@@ -94,7 +94,7 @@ mp_device_open(const char *path)
 		return NULL;
 	}
 
-	return mp_device_new_legacy(fd, path);
+	return mp_device_new(fd);
 }
 
 MPDevice *
@@ -207,8 +207,9 @@ mp_device_setup_link(MPDevice *device, uint32_t source_pad_id, uint32_t sink_pad
 	link.flags = enabled ? MEDIA_LNK_FL_ENABLED : 0;
 	link.source.entity = source_pad->entity_id;
 	link.source.index = 0;
-	link.sink.entity = sink_pad->entity_id;
+	link.sink.entity = 10; //sink_pad->entity_id;
 	link.sink.index = 0;
+printf("linking flags %d source %d:0 sink %d:0\n", link.flags, link.source.entity, link.sink.entity);
 	if (xioctl(device->fd, MEDIA_IOC_SETUP_LINK, &link) == -1) {
 		errno_printerr("MEDIA_IOC_SETUP_LINK");
 		return false;
@@ -224,7 +225,9 @@ mp_device_find_entity(const MPDevice *device, const char *driver_name)
 
 	// Find the entity from the name
 	for (uint32_t i = 0; i < device->num_entities; ++i) {
+		printf("%d: there's %s, looking for %s\n", device->fd, device->entities[i].name, driver_name);
 		if (strncmp(device->entities[i].name, driver_name, length) == 0) {
+			printf("found!\n");
 			return &device->entities[i];
 		}
 	}
@@ -482,14 +485,15 @@ mp_device_list_free(MPDeviceList *device_list)
 }
 
 MPDevice *
-mp_device_list_find_remove(MPDeviceList **list, const char *driver_name)
+mp_device_list_find_remove(MPDeviceList **list, const char *driver_name, const char *dev_name)
 {
 	MPDevice *found_device = NULL;
 	int length = strlen(driver_name);
-
+printf("mp_device_list_find_remove %s %s\n", driver_name, dev_name);
 	while (*list) {
 		MPDevice *device = mp_device_list_get(*list);
-		if (strncmp(device->path, driver_name, length) == 0) {
+		const struct media_device_info *info = mp_device_get_info(device);
+		if (strncmp(info->driver, driver_name, length) == 0 && mp_device_find_entity(device, dev_name)) {
 			found_device = mp_device_list_remove(list);
 			break;
 		}

@@ -1,3 +1,135 @@
+millipixels (0.17.0-1) experimental; urgency=medium
+
+  [ Martijn Braam ]
+  * Update chatroom info
+  * Fix bash-ism in postprocess.sh
+  * Trigger capture with spacebar
+  * Made the QR outline more visible
+
+  [ Benjamin Schaaf ]
+  * Fix memory leak
+  * Use glib to check for a valid URI in bar codes
+
+  [ Maarten van Gompel ]
+  * Implementing fallbacks when special dirs don't behave as expected #44
+
+  [ Dorota Czaplejewicz ]
+  * Revert "Use glib to check for a valid URI in bar codes"
+  * Preview works
+  * Preview for x230
+  * format
+  * fixed format setting
+  * hacking -P format to be unpacked
+  * bggr8
+  * Add fixed big camera format
+  * Add Birch config
+  * Rename big camera
+  * Install Birch config
+  * Nasty hack: those don't work and pollute dmesg
+  * Nasty hack: those don't work and pollute dmesg
+  * Stop streaming on quit
+  * debian: deps
+  * tests: Trying and failing to quickly fix the test
+  * CI: packages
+  * debian: Amber compatibility
+  * debian: Remove patch
+  * Add selfie
+  * no debug
+  * Use /dev/v4l/by-path paths only
+  * TIFF: Use correct subpixel order
+  * configs: better colors, better x230 settings
+  * Revert "Nasty hack: those don't work and pollute dmesg"
+  * Revert "Nasty hack: those don't work and pollute dmesg"
+  * Use base controls
+  * Don't crash if adjusting state failed
+  * CI: Use Librem5 definitions
+  * Use base queryctrl
+  * Use color matrix for all models
+  * Change camera order
+  * Add Cairo header
+  * glade: IDE insists on changes
+  * Show a message when camera is off
+  * Remove debugging exit
+  * Librem 5 hack: Detect missing module due to boot switch off
+  * focus: Save desired value, restore on mode change
+  * install: Allow focus ajustment on Librem 5
+  * config: Read libcamera IDs for the Librem 5 r4
+  * pipeline: Remove the mode global
+  * camera: Encode mode validity inside the mode
+  * camera: Pass mode by value
+  * camera: Set mode using libcamera
+  * big camera: Use updated name
+  * debian: Add new dependencies
+  * ci: Remove Amber
+  * Millipixels: rename possible Megapixels install conflicts
+  * Rename to millipixels
+
+  [ Angus Ainslie ]
+  * purism,librem5r4.ini: add a selfie cam stanza
+  * Add a quickviewer for the selfie cam
+
+  [ Sebastian Krzyszkowiak ]
+  * config: librem5: Use /dev/v4l/by-path node paths
+  * config: librem5r4: Rotate the big cam
+  * meson.build: Install librem5r4 config
+  * config: Add librem5r3
+  * quickpreview: Use sRGB in 10-bit lookup table
+  * main: Don't mangle displayed exposure and gain values
+  * config: Use correct pixel format for L5 selfie cam
+  * postprocess: Don't sharpen the resulting JPG
+  * postprocess: Use automatic white balance in dcraw
+  * mp_pixel_format_width_to_colors: Return half the width also for 10-bit formats
+  * Query V4L for maximum exposure value
+  * quickpreview: Fix debayer's channel order
+  * quickpreview: Average the value of two green channels
+  * super bad focus
+  * Hide focus slider unless the camera config wants it
+  * Change ISO/Shutter labels to Gain/Exposure
+  * io_pipeline: Don't restart streaming on capture if capture mode equals preview mode
+  * quickpreview: Correctly handle black level subtraction
+  * config: purism,librem5: Set blacklevel values
+  * process_pipeline: Correctly set BlackLevel TIFF tag
+  * postprocess: Tweak dcraw options
+  * config: Remove bogus values from librem5 configs
+  * config: Add colormatrix and forwardmatrix for librem5 selfie camera
+  * ui: Hide settings button
+  * Make controls UI toggling more intuitive
+  * process_pipeline: Set the thumbnail row buffer to correct size
+  * process_pipeline: Handle non-RAW8 images when saving DNG
+  * Remove support for auto gain and exposure controls
+  * Check and enforce minimal v4l control values
+  * Restore focus state on camera switch
+  * config: Add fnumber, focal length and crop factor parameters for L5 cameras
+  * config: Use "Librem 5" as camera model name
+  * config: Set proper camera resolutions in librem5 configs
+  * data: Add form factor tags
+  * quickpreview: Apply tone curve after color matrix transformation
+  * camera_config: Use inverted color matrix as preview matrix and convert XYZ to sRGB
+  * config: Use preliminarily calibrated color matrices for L5 cameras
+  * process_pipeline: Store a default whitelevel in the DNG file
+  * postprocess.sh: Clean up
+  * Add white balance slider
+  * quickpreview: Clip highlights
+  * Set initial focus value to 3500
+  * Invert the focus slider values
+  * process_pipeline: Don't store unspecified ISO store in metadata
+  * process_pipeline: Don't store exposure time in metadata
+  * process_pipeline: Store unmangled control values in MAKERNOTE exif tag
+  * config: Switch L5 big cam's capture mode to half resolution
+  * Store a proper thumbnail in the DNG file
+  * main: Set proper prgname
+  * Clean up whitespace
+  * non-legacy
+
+  [ Guido Günther ]
+  * postprocess: Don't exit unconditionally
+  * d/control: Recommend dcraw
+
+  [ Martin Kepplinger ]
+  * fix focus control for the dw9714 vcm
+
+ -- Dorota Czaplejewicz <dorota.czaplejewicz@puri.sm>  Tue, 02 Nov 2021 12:18:46 +0000
+
 megapixels (0.16.0-1) experimental; urgency=medium
 
   * New upstream release 0.16.0

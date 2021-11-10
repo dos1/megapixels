@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=Megapixels
-Exec=megapixels /etc/megapixels.ini
+Name=Millipixels
+Exec=millipixels /etc/millipixels.ini
 Terminal=false
 Type=Application
 Categories=GTK;
-Icon=org.postmarketos.Megapixels
+Icon=sm.puri.Millipixels
 StartupNotify=true
 X-Purism-FormFactor=Workstation;Mobile;

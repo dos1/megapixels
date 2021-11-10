@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <linux/v4l2-subdev.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,6 +22,10 @@ typedef enum {
 	MP_PIXEL_FMT_GBRG10,
 	MP_PIXEL_FMT_GRBG10,
 	MP_PIXEL_FMT_RGGB10,
+	MP_PIXEL_FMT_BGGR16,
+	MP_PIXEL_FMT_GBRG16,
+	MP_PIXEL_FMT_GRBG16,
+	MP_PIXEL_FMT_RGGB16,
 	MP_PIXEL_FMT_UYVY,
 	MP_PIXEL_FMT_YUYV,
 
@@ -42,10 +50,16 @@ uint32_t mp_pixel_format_height_to_colors(MPPixelFormat pixel_format,
 typedef struct {
 	MPPixelFormat pixel_format;
 
-	struct v4l2_fract frame_interval;
+	struct v4l2_fract frame_interval; // ignored
 	uint32_t width;
 	uint32_t height;
 } MPCameraMode;
+
+static inline bool mp_camera_mode_is_valid(MPCameraMode m) {
+	return !(m.width == 0 && m.height == 0);
+}
+
+MPCameraMode mp_camera_mode_new_invalid(void);
 
 bool mp_camera_mode_is_equivalent(const MPCameraMode *m1, const MPCameraMode *m2);
 
@@ -58,7 +72,7 @@ typedef struct {
 
 typedef struct _MPCamera MPCamera;
 
-MPCamera *mp_camera_new(int video_fd, int subdev_fd);
+MPCamera *mp_camera_new(int video_fd, int subdev_fd, const char id[260]);
 void mp_camera_free(MPCamera *camera);
 
 bool mp_camera_is_subdev(MPCamera *camera);
@@ -68,7 +82,7 @@ int mp_camera_get_subdev_fd(MPCamera *camera);
 const MPCameraMode *mp_camera_get_mode(const MPCamera *camera);
 bool mp_camera_try_mode(MPCamera *camera, MPCameraMode *mode);
 
-bool mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode);
+bool mp_camera_set_mode(MPCamera *camera, MPCameraMode mode);
 bool mp_camera_start_capture(MPCamera *camera);
 bool mp_camera_stop_capture(MPCamera *camera);
 bool mp_camera_is_capturing(MPCamera *camera);
@@ -120,3 +134,8 @@ int32_t mp_camera_control_get_int32(MPCamera *camera, uint32_t id);
 bool mp_camera_control_try_bool(MPCamera *camera, uint32_t id, bool *v);
 bool mp_camera_control_set_bool(MPCamera *camera, uint32_t id, bool v);
 bool mp_camera_control_get_bool(MPCamera *camera, uint32_t id);
+
+
+#ifdef __cplusplus
+}
+#endif

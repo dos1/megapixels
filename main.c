@@ -259,6 +259,11 @@ mp_main_capture_completed(cairo_surface_t *thumb, const char *fname)
 				   (GSourceFunc)capture_completed, args, free);
 }
 
+void
+notify_processing_finished(cairo_surface_t *thumb) {
+	mp_main_capture_completed(thumb, "");
+}
+
 static void
 draw_controls()
 {
@@ -754,7 +759,7 @@ main(int argc, char *argv[])
 	setenv("LC_NUMERIC", "C", 1);
 
 	gtk_init(&argc, &argv);
-	g_set_prgname("org.postmarketos.Megapixels");
+	g_set_prgname("sm.puri.Millipixels");
 	g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme",
 		     TRUE, NULL);
 	GtkBuilder *builder = gtk_builder_new_from_resource(

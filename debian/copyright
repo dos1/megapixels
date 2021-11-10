@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: megapixels
-Upstream-Contact: Martijn Braam <martijn@brixit.nl>
-Source: https://git.sr.ht/~martijnbraam/megapixels
+Upstream-Name: millipixels
+Upstream-Contact: <dorota.czaplejewicz@puri.sm>
+Source: https://source.puri.sm/Librem5/megapixels/
 
 Files: *
 Copyright: 2020 Martijn Braam <martijn@brixit.nl>
@@ -17,6 +17,10 @@ License: BSD-3-Clause
 
 Files: debian/*
 Copyright: 2020 Arnaud Ferraris <arnaud.ferraris@gmail.com>
+License: GPL-3.0-or-later
+
+Files: src/*
+Copyright: 2021 Purism SPC
 License: GPL-3.0-or-later
 
 License: BSD-3-Clause

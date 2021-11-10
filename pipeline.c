@@ -4,12 +4,6 @@
 #include <glib-unix.h>
 #include <assert.h>
 
-struct _MPPipeline {
-	GMainContext *main_context;
-	GMainLoop *main_loop;
-	pthread_t thread;
-};
-
 static void *
 thread_main_loop(void *arg)
 {
@@ -44,6 +38,7 @@ invoke_impl(struct invoke_args *args)
 	return false;
 }
 
+/// Ensures the callback is run from the main context
 void
 mp_pipeline_invoke(MPPipeline *pipeline, MPPipelineCallback callback,
 		   const void *data, size_t size)

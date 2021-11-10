@@ -1,8 +1,10 @@
-# Megapixels
+# Millipixels
 
-A GTK3 camera application that knows how to deal with the media request api
+A camera application for the Librem 5.
 
-chat: #megapixels:postmarketos.org on matrix
+Millipixel's goals is to exercise libcamera APIs to help it support the capabilities of the Librem 5 phone. It's meant to stay the supported Librem 5 application until a suitable replacement arrives.
+
+It's forked off [Megapixels](https://sr.ht/~martijnbraam/Megapixels/)
 
 ## Building
 
@@ -15,17 +17,17 @@ $ sudo ninja install
 
 # Config
 
-Megapixels checks multiple locations for it's configuration file and uses the first one it finds.
+Millipixels checks multiple locations for it's configuration file and uses the first one it finds.
 As first step it will get the first compatible name in the device tree, in the case of a PinePhone
 this might be "pine64,pinephone-1.2". Then that dtname will be used as the filename in the search
 path in this order:
 
-* $XDG_CONFIG_DIR/megapixels/config/$dtname.ini
-* ~/.config/megapixels/config/$dtname.ini
-* /etc/megapixels/config/$dtname.ini
-* /usr/share/megapixels/config/$dtname.ini
+* $XDG_CONFIG_DIR/millipixels/config/$dtname.ini
+* ~/.config/millipixels/config/$dtname.ini
+* /etc/millipixels/config/$dtname.ini
+* /usr/share/millipixels/config/$dtname.ini
 
-The files in /usr/share/megapixels should be the config files distributed in this repository. The other
+The files in /usr/share/millipixels should be the config files distributed in this repository. The other
 locations allow the user or distribution to override config.
 
 ## Config file format
@@ -63,15 +65,15 @@ when previewing.
 
 # Post processing
 
-Megapixels only captures raw frames and stores .dng files. It captures a 5 frame burst and saves it to a temporary
+Millipixels only captures raw frames and stores .dng files. It captures a 5 frame burst and saves it to a temporary
 location. Then the postprocessing script is run which will generate the final .jpg file and writes it into the 
-pictures directory. Megapixels looks for the post processing script in the following locations:
+pictures directory. Millipixels looks for the post processing script in the following locations:
 
 * ./postprocess.sh
-* $XDG_CONFIG_DIR/megapixels/postprocess.sh
-* ~/.config/megapixels/postprocess.sh
-* /etc/megapixels/postprocess.sh
-* /usr/share/megapixels/postprocess.sh
+* $XDG_CONFIG_DIR/millipixels/postprocess.sh
+* ~/.config/millipixels/postprocess.sh
+* /etc/millipixels/postprocess.sh
+* /usr/share/millipixels/postprocess.sh
 
 The bundled postprocess.sh script will copy the first frame of the burst into the picture directory as an DNG
 file and if dcraw and imagemagick are installed it will generate a JPG and also write that to the picture
@@ -84,20 +86,7 @@ see postprocess.sh in this repository.
 
 # Developing
 
-See the mailing list and issue tracker on https://sr.ht/~martijnbraam/Megapixels/
-
-To send patches, follow this procedure:
-
-1. Change the default subject prefix from "PATCH" to "PATCH Megapixels" by
-   running this command (only needed once).
-   ```shell-session
-   $ git config --local format.subjectPrefix "PATCH Megapixels"
-   ```
-2. Rebase your commits on top of the latest `master`.
-3. Send them to the mailing list:
-   ```shell-session
-   $ git send-email --to="~martijnbraam/public-inbox@lists.sr.ht" origin/master
-   ```
+See the issue tracker on https://source.puri.sm/Librem5/megapixels
 
 ## Source code organization
 
@@ -110,12 +99,16 @@ To send patches, follow this procedure:
 * `pipeline.c` Generic threaded message passing implementation based on glib, used to implement the pipelines.
 * `camera.c` V4L2 abstraction layer to make working with cameras easier
 * `device.c` V4L2 abstraction layer for devices
+* `src/libcam.cpp` - helper for changing modes with libcamera
+* `src/postproc.rs` - helper for spawning the postprocessing script
 
 The primary image pipeline consists of the main application, the IO pipeline and
 the process pipeline. The main application sends commands to the IO pipeline,
 which in turn talks to the process pipeline, which then talks to the main
 application. This way neither IO nor processing blocks the main application and
 races are generally avoided.
+
+Rust parts are built using Meson directly, and they don't support anything but the standard library. Given how messy it is to integrate Cargo, it should stay that way.
 
 Tests are located in `tests/`.
 
@@ -130,7 +123,7 @@ All tools are contained in `tools/`
 
 Most of the logic is contained inside `main.c`, but before we look at it, it is
 convenient to have some basic notions about the Linux video subsystem that
-Megapixels directly uses (instead of, for example, using a higher level
+Millipixels directly uses (instead of, for example, using a higher level
 framework such as "gstreamer", as other camera apps do).
 
 Typically, for "simple" video capture devices (such as some old webcams on a
@@ -378,7 +371,7 @@ variable (`capture`) is set so that the next `N` times (currently `N==10`), the
    button").
 2. It will save the latest captured buffer (in "RAW data" format, ie. `BGGR8`)
    to a `.dng` file using the "TIFF" library, which makes it possible to attach
-   all the needed metadata (which Megapixels extracts from the hardware itself
+   all the needed metadata (which Millipixels extracts from the hardware itself
    and/or the values on the `.ini` file).
 3. In addition, **only** the very last time (from the `N` times):
      - The captured buffer is run through `quick_debayer_bggr8()` and the result

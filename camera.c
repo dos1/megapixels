@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "src/libcam.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -13,6 +14,7 @@ static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
 	"unsupported", "BGGR8",	"GBRG8", "GRBG8", "RGGB8",
 	"BGGR10P", "GBRG10P", "GRBG10P", "RGGB10P",
 	"BGGR10", "GBRG10", "GRBG10", "RGGB10",
+	"BGGR16", "GBRG16", "GRBG16", "RGGB16",
 	"UYVY",  "YUYV",
 };
 
@@ -28,6 +30,7 @@ mp_pixel_format_from_str(const char *name)
 {
 	for (MPPixelFormat i = 0; i < MP_PIXEL_FMT_MAX; ++i) {
 		if (strcasecmp(pixel_format_names[i], name) == 0) {
+printf("matched %s to %s %d\n", name, pixel_format_names[i], i);
 			return i;
 		}
 	}
@@ -48,6 +51,10 @@ static const uint32_t pixel_format_v4l_pixel_formats[MP_PIXEL_FMT_MAX] = {
 	V4L2_PIX_FMT_SGBRG10,
 	V4L2_PIX_FMT_SGRBG10,
 	V4L2_PIX_FMT_SRGGB10,
+	V4L2_PIX_FMT_SBGGR16,
+	V4L2_PIX_FMT_SGBRG16,
+	V4L2_PIX_FMT_SGRBG16,
+	V4L2_PIX_FMT_SRGGB16,
 	V4L2_PIX_FMT_UYVY,
 	V4L2_PIX_FMT_YUYV,
 };
@@ -76,6 +83,10 @@ static const uint32_t pixel_format_v4l_bus_codes[MP_PIXEL_FMT_MAX] = {
 	MEDIA_BUS_FMT_SGBRG8_1X8,
 	MEDIA_BUS_FMT_SGRBG8_1X8,
 	MEDIA_BUS_FMT_SRGGB8_1X8,
+	MEDIA_BUS_FMT_SBGGR10_1X10,
+	MEDIA_BUS_FMT_SGBRG10_1X10,
+	MEDIA_BUS_FMT_SGRBG10_1X10,
+	MEDIA_BUS_FMT_SRGGB10_1X10,
 	MEDIA_BUS_FMT_SBGGR10_1X10,
 	MEDIA_BUS_FMT_SGBRG10_1X10,
 	MEDIA_BUS_FMT_SGRBG10_1X10,
@@ -125,6 +136,10 @@ mp_pixel_format_bits_per_pixel(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
 	case MP_PIXEL_FMT_BGGR10:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
+	case MP_PIXEL_FMT_BGGR16:
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
 		return 16;
@@ -151,6 +166,10 @@ mp_pixel_format_pixel_depth(MPPixelFormat pixel_format)
 	case MP_PIXEL_FMT_GRBG10P:
 	case MP_PIXEL_FMT_RGGB10P:
 	case MP_PIXEL_FMT_BGGR10P:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
+	case MP_PIXEL_FMT_BGGR16:
 		return 10;
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
@@ -186,6 +205,10 @@ mp_pixel_format_width_to_colors(MPPixelFormat pixel_format, uint32_t width)
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
+	case MP_PIXEL_FMT_BGGR16:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
 		return width / 2;
 	case MP_PIXEL_FMT_BGGR10P:
 	case MP_PIXEL_FMT_GBRG10P:
@@ -217,6 +240,10 @@ mp_pixel_format_height_to_colors(MPPixelFormat pixel_format, uint32_t height)
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
+	case MP_PIXEL_FMT_BGGR16:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
 		return height / 2;
 	case MP_PIXEL_FMT_UYVY:
 	case MP_PIXEL_FMT_YUYV:
@@ -259,8 +286,8 @@ struct video_buffer {
 struct _MPCamera {
 	int video_fd;
 	int subdev_fd;
+	char id[260];
 
-	bool has_set_mode;
 	MPCameraMode current_mode;
 
 	struct video_buffer buffers[MAX_VIDEO_BUFFERS];
@@ -270,7 +297,7 @@ struct _MPCamera {
 };
 
 MPCamera *
-mp_camera_new(int video_fd, int subdev_fd)
+mp_camera_new(int video_fd, int subdev_fd, const char libcamera_id[260])
 {
 	g_return_val_if_fail(video_fd != -1, NULL);
 
@@ -294,9 +321,10 @@ mp_camera_new(int video_fd, int subdev_fd)
 	MPCamera *camera = malloc(sizeof(MPCamera));
 	camera->video_fd = video_fd;
 	camera->subdev_fd = subdev_fd;
-	camera->has_set_mode = false;
+	camera->current_mode = mp_camera_mode_new_invalid();
 	camera->num_buffers = 0;
 	camera->use_mplane = use_mplane;
+	memcpy(camera->id, libcamera_id, 260);
 	return camera;
 }
 
@@ -329,32 +357,13 @@ mp_camera_get_subdev_fd(MPCamera *camera)
 	return camera->subdev_fd;
 }
 
-static uint32_t v4l2_pixel_format_from_mp_pixel_format(MPPixelFormat fmt) {
-	switch (fmt) {
-	case MP_PIXEL_FMT_BGGR10P:
-		return V4L2_PIX_FMT_SBGGR10P;
-	case MP_PIXEL_FMT_BGGR10:
-		return V4L2_PIX_FMT_SBGGR10;
-	case MP_PIXEL_FMT_GRBG10:
-		return V4L2_PIX_FMT_SGRBG10;
-	case MP_PIXEL_FMT_GBRG10:
-		return V4L2_PIX_FMT_SGBRG10;
-	case MP_PIXEL_FMT_RGGB10:
-		return V4L2_PIX_FMT_SRGGB10;
-	case MP_PIXEL_FMT_BGGR8:
-		return V4L2_PIX_FMT_SBGGR8;
-	case MP_PIXEL_FMT_GRBG8:
-		return V4L2_PIX_FMT_SGRBG8;
-	default:
-		return 0;
-	}
-}
-
 static bool
 camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 {
-	uint32_t pixfmt = v4l2_pixel_format_from_mp_pixel_format(mode->pixel_format);
-	g_printerr("format %d %x\n", mode->pixel_format, pixfmt);
+//mode->pixel_format = MP_PIXEL_FMT_GBRG10;
+	uint32_t pixfmt = mp_pixel_format_to_v4l_pixel_format(mode->pixel_format);
+	g_printerr("format %d %d %d %s\n", mode->pixel_format, pixfmt, V4L2_PIX_FMT_SGBRG10, mp_pixel_format_to_str(mode->pixel_format));
+	//exit(0);
 	struct v4l2_format fmt = {};
 	if (camera->use_mplane) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -366,14 +375,16 @@ camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		fmt.fmt.pix.width = mode->width;
 		fmt.fmt.pix.height = mode->height;
-		fmt.fmt.pix.pixelformat = pixfmt;
+		fmt.fmt.pix.pixelformat = (pixfmt == V4L2_PIX_FMT_SGBRG10P) ? V4L2_PIX_FMT_SGBRG16 : V4L2_PIX_FMT_SGRBG8; // hack
 		fmt.fmt.pix.field = V4L2_FIELD_ANY;
+		//fmt.fmt.pix.colorspace = V4L2_COLORSPACE_RAW;
+		//printf("width %d height %d\n", mode->width, mode->height);//exit(0);
 	}
 
 	if (xioctl(camera->video_fd, request, &fmt) == -1) {
 		return false;
 	}
-
+//exit(0);
 	if (camera->use_mplane) {
 		mode->width = fmt.fmt.pix_mp.width;
 		mode->height = fmt.fmt.pix_mp.height;
@@ -388,6 +399,12 @@ camera_mode_impl(MPCamera *camera, int request, MPCameraMode *mode)
 
 	return true;
 }
+
+MPCameraMode mp_camera_mode_new_invalid(void) {
+	MPCameraMode invalid = {0};
+	return invalid;
+}
+
 
 bool
 mp_camera_try_mode(MPCamera *camera, MPCameraMode *mode)
@@ -406,77 +423,20 @@ mp_camera_get_mode(const MPCamera *camera)
 }
 
 bool
-mp_camera_set_mode(MPCamera *camera, MPCameraMode *mode)
+mp_camera_set_mode(MPCamera *camera, MPCameraMode mode)
 {
-	// Set the mode in the subdev the camera is one
-	if (mp_camera_is_subdev(camera)) {
-		struct v4l2_subdev_frame_interval interval = {};
-		interval.pad = 0;
-		interval.interval = mode->frame_interval;
-		// This can fail and is quite normal
-/*
-		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
-			   &interval) == -1) {
-			errno_printerr("VIDIOC_SUBDEV_S_FRAME_INTERVAL");
-			return false;
-		}
-*/
-		bool did_set_frame_rate = interval.interval.numerator ==
-						  mode->frame_interval.numerator &&
-					  interval.interval.denominator ==
-						  mode->frame_interval.denominator;
-
-		struct v4l2_subdev_format fmt = {};
-		fmt.pad = 0;
-		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		fmt.format.width = mode->width;
-		fmt.format.height = mode->height;
-		fmt.format.code =
-			mp_pixel_format_to_v4l_bus_code(mode->pixel_format);
-		fmt.format.field = V4L2_FIELD_ANY;
-		if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FMT, &fmt) == -1) {
-			errno_printerr("VIDIOC_SUBDEV_S_FMT");
-			return false;
-		}
-
-		// Some drivers like ov5640 don't allow you to set the frame format with
-		// too high a frame-rate, but that means the frame-rate won't be set
-		// after the format change. So we need to try again here if we didn't
-		// succeed before. Ideally we'd be able to set both at once.
-		if (!did_set_frame_rate) {
-			interval.interval = mode->frame_interval;
-			if (xioctl(camera->subdev_fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL,
-				   &interval) == -1) {
-				errno_printerr("VIDIOC_SUBDEV_S_FRAME_INTERVAL");
-			}
-		}
-
-		// Update the mode
-		mode->pixel_format =
-			mp_pixel_format_from_v4l_bus_code(fmt.format.code);
-		mode->frame_interval = interval.interval;
-		mode->width = fmt.format.width;
-		mode->height = fmt.format.height;
+	mode = set_mode(camera->id, mode.width, mode.height);
+	if (!mp_camera_mode_is_valid(mode)) {
+		return false;
 	}
-
-	// Set the mode for the video device
-	{
-		if (!camera_mode_impl(camera, VIDIOC_S_FMT, mode)) {
-			errno_printerr("VIDIOC_S_FMT");
-			return false;
-		}
-	}
-
-	camera->has_set_mode = true;
-	camera->current_mode = *mode;
-
+	camera->current_mode = mode;
 	return true;
 }
 
 bool
 mp_camera_start_capture(MPCamera *camera)
 {
-	g_return_val_if_fail(camera->has_set_mode, false);
+	g_return_val_if_fail(mp_camera_mode_is_valid(camera->current_mode), false);
 	g_return_val_if_fail(camera->num_buffers == 0, false);
 
 	enum v4l2_buf_type buftype = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -653,7 +613,7 @@ mp_camera_capture_image(MPCamera *camera, void (*callback)(MPImage, void *),
 		buf.m.planes = planes;
 		buf.length = 1;
 	}
-
+//exit(0);
 	if (xioctl(camera->video_fd, VIDIOC_DQBUF, &buf) == -1) {
 		switch (errno) {
 		case EAGAIN:
@@ -1184,7 +1144,7 @@ mp_control_list_free(MPControlList *list)
 }
 
 bool
-mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
+mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
 {
 	struct v4l2_query_ext_ctrl ctrl = {};
 	ctrl.id = id;
@@ -1213,39 +1173,8 @@ mp_camera_query_control_ext(MPCamera *camera, uint32_t id, MPControl *control)
 	return true;
 }
 
-bool
-mp_camera_query_control(MPCamera *camera, uint32_t id, MPControl *control)
-{
-	struct v4l2_queryctrl ctrl = {
-		.id = id,
-	};
-	if (xioctl(control_fd(camera), VIDIOC_QUERYCTRL, &ctrl) == -1) {
-		if (errno != EINVAL) {
-			errno_printerr("VIDIOC_QUERYCTRL");
-		}
-		return false;
-	}
-
-	if (control) {
-		control->id = ctrl.id;
-		control->type = ctrl.type;
-		strcpy(control->name, (const char*)ctrl.name);
-		control->min = ctrl.minimum;
-		control->max = ctrl.maximum;
-		control->step = ctrl.step;
-		control->default_value = ctrl.default_value;
-		control->flags = ctrl.flags;
-		control->element_size = 0;
-		control->element_count = 0;
-		control->dimensions_count = 0;
-		//control->dimensions = skipped cause can't be assigned easily and unused anyway;
-	}
-	return true;
-}
-
-
 static bool
-control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *value)
+control_impl_int32(MPCamera *camera, uint32_t id, int request, int32_t *value)
 {
 	struct v4l2_ext_control ctrl = {};
 	ctrl.id = id;
@@ -1258,28 +1187,6 @@ control_impl_int32_ext(MPCamera *camera, uint32_t id, int request, int32_t *valu
 		.controls = &ctrl,
 	};
 	if (xioctl(control_fd(camera), request, &ctrls) == -1) {
-		return false;
-	}
-
-	*value = ctrl.value;
-	return true;
-}
-
-static bool
-control_impl_int32(MPCamera *camera, uint32_t id, unsigned long request, int32_t *value)
-{
-	struct v4l2_control ctrl = {
-		.id = id,
-		.value = *value,
-	};
-
-	if (request == VIDIOC_G_EXT_CTRLS) {
-		request = VIDIOC_G_CTRL;
-	} else if (request == VIDIOC_S_EXT_CTRLS) {
-		request = VIDIOC_S_CTRL;
-	}
-
-	if (xioctl(control_fd(camera), request, &ctrl) == -1) {
 		return false;
 	}
 

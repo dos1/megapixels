@@ -13,44 +13,58 @@
 #include <wordexp.h>
 #include <gtk/gtk.h>
 
+#include "src/postproc.h"
+
+#define SCRIPT_FORMAT "%s/millipixels/%s"
+
 #define TIFFTAG_FORWARDMATRIX1 50964
 
 static const float colormatrix_srgb[] = { 3.2409, -1.5373, -0.4986, -0.9692, 1.8759,
 					  0.0415, 0.0556,  -0.2039, 1.0569 };
 
-static MPPipeline *pipeline;
 
-static char burst_dir[23];
-static char processing_script[512];
+/// Having one global instead of many makes it clear that
+/// each source file is meant to bahave like an object would.
+/// Object-oriented conventions are easier applied from here.
+struct module {
+	MPPipeline *pipeline;
 
-static volatile bool is_capturing = false;
-static volatile int frames_processed = 0;
-static volatile int frames_received = 0;
+	char burst_dir[23];
+	char processing_script[512];
 
-static const struct mp_camera_config *camera;
+	// FIXME: volatile is dangerous, use atomics instead.
+	volatile bool is_capturing;
+	volatile int frames_processed;
+	volatile int frames_received;
 
-static MPCameraMode mode;
+	const struct mp_camera_config *camera;
 
-static int burst_length;
-static int captures_remaining = 0;
+	int burst_length;
+	int captures_remaining;
 
-static int preview_width;
-static int preview_height;
+	int preview_width;
+	int preview_height;
 
-// static bool gain_is_manual;
-static int gain;
-static int gain_max;
-static int gain_min;
+	// bool gain_is_manual;
+	int gain;
+	int gain_max;
+	int gain_min;
 
-static bool exposure_is_manual;
-static int exposure;
-static int exposure_max;
-static int exposure_min;
+	bool exposure_is_manual;
+	int exposure;
+	int exposure_max;
+	int exposure_min;
 
-static int wb;
-static int focus;
+	int wb;
+	int focus;
+};
 
-static char capture_fname[255];
+static struct module module = {
+	.is_capturing = false,
+	.frames_processed = 0,
+	.frames_received = 0,
+	.captures_remaining = 0,
+};
 
 static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
     "\002\001\001\000", // fallback
@@ -114,21 +128,21 @@ find_processor(char *script)
 	}
 
 	// Check for a script in XDG_CONFIG_HOME
-	sprintf(script, "%s/megapixels/%s", xdg_config_home, filename);
+	sprintf(script, SCRIPT_FORMAT, xdg_config_home, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
 	}
 
 	// Check user overridden /etc/megapixels/postprocessor.sh
-	sprintf(script, "%s/megapixels/%s", SYSCONFDIR, filename);
+	sprintf(script, SCRIPT_FORMAT, SYSCONFDIR, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
 	}
 
 	// Check packaged /usr/share/megapixels/postprocessor.sh
-	sprintf(script, "%s/megapixels/%s", DATADIR, filename);
+	sprintf(script, SCRIPT_FORMAT, DATADIR, filename);
 	if (access(script, F_OK) != -1) {
 		printf("Found postprocessor script at %s\n", script);
 		return true;
@@ -142,7 +156,7 @@ setup(MPPipeline *pipeline, const void *data)
 {
 	TIFFSetTagExtender(register_custom_tiff_tags);
 
-	if (!find_processor(processing_script)) {
+	if (!find_processor(module.processing_script)) {
 		g_printerr("Could not find any post-process script\n");
 		exit(1);
 	}
@@ -151,10 +165,9 @@ setup(MPPipeline *pipeline, const void *data)
 void
 mp_process_pipeline_start()
 {
-	pipeline = mp_pipeline_new();
+	module.pipeline = mp_pipeline_new();
 
-	mp_pipeline_invoke(pipeline, setup, NULL, 0);
-
+	mp_pipeline_invoke(module.pipeline, setup, NULL, 0);
 
 	mp_zbar_pipeline_start();
 }
@@ -162,7 +175,7 @@ mp_process_pipeline_start()
 void
 mp_process_pipeline_stop()
 {
-	mp_pipeline_free(pipeline);
+	mp_pipeline_free(module.pipeline);
 
 	mp_zbar_pipeline_stop();
 }
@@ -171,9 +184,9 @@ static cairo_surface_t *
 process_image_for_preview(const MPImage *image)
 {
 	uint32_t surface_width, surface_height, skip;
-	quick_preview_size(&surface_width, &surface_height, &skip, preview_width,
-			   preview_height, image->width, image->height,
-			   image->pixel_format, camera->rotate);
+	quick_preview_size(&surface_width, &surface_height, &skip, module.preview_width,
+			   module.preview_height, image->width, image->height,
+			   image->pixel_format, module.camera->rotate);
 
 	cairo_surface_t *surface = cairo_image_surface_create(
 		CAIRO_FORMAT_RGB24, surface_width, surface_height);
@@ -182,13 +195,13 @@ process_image_for_preview(const MPImage *image)
 
 	quick_preview((uint32_t *)pixels, surface_width, surface_height, image->data,
 		      image->width, image->height, image->pixel_format,
-		      camera->rotate, camera->mirrored,
-		      camera->previewmatrix[0] == 0 ? NULL : camera->previewmatrix,
-		      camera->blacklevel, skip);
+			  module.camera->rotate, module.camera->mirrored,
+			  module.camera->previewmatrix[0] == 0 ? NULL : module.camera->previewmatrix,
+			  module.camera->blacklevel, skip);
 
 	// Create a thumbnail from the preview for the last capture
 	cairo_surface_t *thumb = NULL;
-	if (captures_remaining == 1) {
+	if (module.captures_remaining == 1) {
 		printf("Making thumbnail\n");
 		thumb = cairo_image_surface_create(
 			CAIRO_FORMAT_ARGB32, MP_MAIN_THUMB_SIZE, MP_MAIN_THUMB_SIZE);
@@ -217,7 +230,7 @@ process_image_for_capture(const MPImage *image, int count)
 	strftime(datetime, 20, "%Y:%m:%d %H:%M:%S", &tim);
 
 	char fname[255];
-	sprintf(fname, "%s/%d.dng", burst_dir, count);
+	sprintf(fname, "%s/%d.dng", module.burst_dir, count);
 
 	TIFF *tif = TIFFOpen(fname, "w");
 	if (!tif) {
@@ -234,17 +247,17 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFSetField(tif, TIFFTAG_MAKE, mp_get_device_make());
 	TIFFSetField(tif, TIFFTAG_MODEL, mp_get_device_model());
 	uint16_t orientation;
-	if (camera->rotate == 0) {
-		orientation = camera->mirrored ? ORIENTATION_TOPRIGHT :
+	if (module.camera->rotate == 0) {
+		orientation = module.camera->mirrored ? ORIENTATION_TOPRIGHT :
 						 ORIENTATION_TOPLEFT;
-	} else if (camera->rotate == 90) {
-		orientation = camera->mirrored ? ORIENTATION_RIGHTBOT :
+	} else if (module.camera->rotate == 90) {
+		orientation = module.camera->mirrored ? ORIENTATION_RIGHTBOT :
 						 ORIENTATION_LEFTBOT;
-	} else if (camera->rotate == 180) {
-		orientation = camera->mirrored ? ORIENTATION_BOTLEFT :
+	} else if (module.camera->rotate == 180) {
+		orientation = module.camera->mirrored ? ORIENTATION_BOTLEFT :
 						 ORIENTATION_BOTRIGHT;
 	} else {
-		orientation = camera->mirrored ? ORIENTATION_LEFTTOP :
+		orientation = module.camera->mirrored ? ORIENTATION_LEFTTOP :
 						 ORIENTATION_RIGHTTOP;
 	}
 	TIFFSetField(tif, TIFFTAG_ORIENTATION, orientation);
@@ -253,7 +266,7 @@ process_image_for_capture(const MPImage *image, int count)
 	int extrasamples = EXTRASAMPLE_UNSPECIFIED;
 	TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &extrasamples);
 	TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-	TIFFSetField(tif, TIFFTAG_SOFTWARE, "Megapixels");
+	TIFFSetField(tif, TIFFTAG_SOFTWARE, "Millipixels");
 	long sub_offset = 0;
 	TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &sub_offset);
 	TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\0\0");
@@ -262,20 +275,20 @@ process_image_for_capture(const MPImage *image, int count)
 	sprintf(uniquecameramodel, "%s %s", mp_get_device_make(),
 		mp_get_device_model());
 	TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, uniquecameramodel);
-	if (camera->colormatrix[0]) {
-		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, camera->colormatrix);
+	if (module.camera->colormatrix[0]) {
+		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, module.camera->colormatrix);
 	} else {
 		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, colormatrix_srgb);
 	}
-	if (camera->forwardmatrix[0]) {
-		TIFFSetField(tif, TIFFTAG_FORWARDMATRIX1, 9, camera->forwardmatrix);
+	if (module.camera->forwardmatrix[0]) {
+		TIFFSetField(tif, TIFFTAG_FORWARDMATRIX1, 9, module.camera->forwardmatrix);
 	}
-	if (camera->colormatrix[0] && camera->forwardmatrix[0]) {
+	if (module.camera->colormatrix[0] && module.camera->forwardmatrix[0]) {
 		float neutral[3];
-		matrix_white_point(camera->previewmatrix, neutral);
+		matrix_white_point(module.camera->previewmatrix, neutral);
 		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, neutral);
 	} else {
-		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, WB_WHITEPOINTS[wb]);
+		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, WB_WHITEPOINTS[module.wb]);
 	}
 	TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21); // D65
 	{
@@ -291,8 +304,8 @@ process_image_for_capture(const MPImage *image, int count)
 		quick_preview((uint32_t *)pixels, surface_width, surface_height, image->data,
 			image->width, image->height, image->pixel_format,
 			0, false,
-			camera->previewmatrix[0] == 0 ? NULL : camera->previewmatrix,
-			camera->blacklevel, skip);
+			module.camera->previewmatrix[0] == 0 ? NULL : module.camera->previewmatrix,
+			module.camera->blacklevel, skip);
 
 		for (int row = 0; row < thumbnail_height; row++) {
 			TIFFWriteScanline(tif, pixels + surface_width * 4 * row, row, 0);
@@ -319,13 +332,13 @@ process_image_for_capture(const MPImage *image, int count)
 	TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, cfa_pattern);
 #endif
 	printf("TIFF version %d\n", TIFFLIB_VERSION);
-	int whitelevel = camera->whitelevel;
+	int whitelevel = module.camera->whitelevel;
 	if (!whitelevel) {
 		whitelevel = (1 << mp_pixel_format_pixel_depth(image->pixel_format)) - 1;
 	}
 	TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &whitelevel);
-	if (camera->blacklevel) {
-		const float blacklevel = camera->blacklevel;
+	if (module.camera->blacklevel) {
+		const float blacklevel = module.camera->blacklevel;
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &blacklevel);
 	}
 	TIFFCheckpointDirectory(tif);
@@ -339,7 +352,7 @@ process_image_for_capture(const MPImage *image, int count)
 	// Add an EXIF block to the tiff
 	TIFFCreateEXIFDirectory(tif);
 	// 1 = manual, 2 = full auto, 3 = aperture priority, 4 = shutter priority
-	if (!exposure_is_manual) {
+	if (!module.exposure_is_manual) {
 		TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 2);
 	} else {
 		TIFFSetField(tif, EXIFTAG_EXPOSUREPROGRAM, 1);
@@ -349,9 +362,9 @@ process_image_for_capture(const MPImage *image, int count)
 	//	     (mode.frame_interval.numerator /
 	//	      (float)mode.frame_interval.denominator) /
 	//		     ((float)image->height / (float)exposure));
-	if (camera->iso_min && camera->iso_max) {
-		uint16_t isospeed = remap(gain - 1, gain_min, gain_max, camera->iso_min,
-					  camera->iso_max);
+	if (module.camera->iso_min && module.camera->iso_max) {
+		uint16_t isospeed = remap(module.gain - 1, module.gain_min, module.gain_max, module.camera->iso_min,
+					  module.camera->iso_max);
 		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &isospeed);
 	}
 	TIFFSetField(tif, EXIFTAG_FLASH, 0);
@@ -359,18 +372,18 @@ process_image_for_capture(const MPImage *image, int count)
 
 	TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, datetime);
 	TIFFSetField(tif, EXIFTAG_DATETIMEDIGITIZED, datetime);
-	if (camera->fnumber) {
-		TIFFSetField(tif, EXIFTAG_FNUMBER, camera->fnumber);
+	if (module.camera->fnumber) {
+		TIFFSetField(tif, EXIFTAG_FNUMBER, module.camera->fnumber);
 	}
-	if (camera->focallength) {
-		TIFFSetField(tif, EXIFTAG_FOCALLENGTH, camera->focallength);
+	if (module.camera->focallength) {
+		TIFFSetField(tif, EXIFTAG_FOCALLENGTH, module.camera->focallength);
 	}
-	if (camera->focallength && camera->cropfactor) {
+	if (module.camera->focallength && module.camera->cropfactor) {
 		TIFFSetField(tif, EXIFTAG_FOCALLENGTHIN35MMFILM,
-			     (short)(camera->focallength * camera->cropfactor));
+				 (short)(module.camera->focallength * module.camera->cropfactor));
 	}
 	char makernote[255] = {};
-	snprintf(makernote, 255, "L5MP Gain: %d; Exposure: %d; Focus: %d; Balance: %s", gain, exposure, focus, WB_ILLUMINANTS[wb]);
+	snprintf(makernote, 255, "L5MP Gain: %d; Exposure: %d; Focus: %d; Balance: %s", module.gain, module.exposure, module.focus, WB_ILLUMINANTS[module.wb]);
 	TIFFSetField(tif, EXIFTAG_MAKERNOTE, strlen(makernote) + 1, makernote);
 	uint64_t exif_offset = 0;
 	TIFFWriteCustomDirectory(tif, &exif_offset);
@@ -385,31 +398,9 @@ process_image_for_capture(const MPImage *image, int count)
 }
 
 static void
-post_process_finished(GSubprocess *proc, GAsyncResult *res, cairo_surface_t *thumb)
+process_capture_burst(cairo_surface_t *thumb, char *burst_dir, char *processing_script)
 {
-	char *stdout;
-	g_subprocess_communicate_utf8_finish(proc, res, &stdout, NULL, NULL);
-
-	// The last line contains the file name
-	int end = strlen(stdout);
-	// Skip the newline at the end
-	stdout[--end] = '\0';
-
-	char *path = path = stdout + end - 1;
-	do {
-		if (*path == '\n') {
-			path++;
-			break;
-		}
-		--path;
-	} while (path > stdout);
-
-	mp_main_capture_completed(thumb, path);
-}
-
-static void
-process_capture_burst(cairo_surface_t *thumb)
-{
+	static char capture_fname[255];
 	time_t rawtime;
 	time(&rawtime);
 	struct tm tim = *(localtime(&rawtime));
@@ -434,48 +425,26 @@ process_capture_burst(cairo_surface_t *thumb)
 			timestamp);
 	}
 
-
 	// Start post-processing the captured burst
 	g_print("Post process %s to %s.ext\n", burst_dir, capture_fname);
-	GError *error = NULL;
-	GSubprocess *proc = g_subprocess_new(
-		G_SUBPROCESS_FLAGS_STDOUT_PIPE,
-		&error,
-		processing_script,
-		burst_dir,
-		capture_fname,
-		NULL);
 
-	if (!proc) {
-		g_printerr("Failed to spawn postprocess process: %s\n",
-			   error->message);
-		return;
-	}
-
-	g_subprocess_communicate_utf8_async(
-		proc,
-		NULL,
-		NULL,
-		(GAsyncReadyCallback)post_process_finished,
-		thumb);
+	spawn_post_process_task(processing_script, burst_dir, capture_fname, thumb);
 }
 
 static void
 process_image(MPPipeline *pipeline, const MPImage *image)
 {
-	assert(image->width == mode.width && image->height == mode.height);
-
 	cairo_surface_t *thumb = process_image_for_preview(image);
 
-	if (captures_remaining > 0) {
-		int count = burst_length - captures_remaining;
-		--captures_remaining;
+	if (module.captures_remaining > 0) {
+		int count = module.burst_length - module.captures_remaining;
+		--module.captures_remaining;
 
 		process_image_for_capture(image, count);
 
-		if (captures_remaining == 0) {
+		if (module.captures_remaining == 0) {
 			assert(thumb);
-			process_capture_burst(thumb);
+			process_capture_burst(thumb, module.burst_dir, module.processing_script);
 		} else {
 			assert(!thumb);
 		}
@@ -485,9 +454,9 @@ process_image(MPPipeline *pipeline, const MPImage *image)
 
 	free(image->data);
 
-	++frames_processed;
-	if (captures_remaining == 0) {
-		is_capturing = false;
+	++module.frames_processed;
+	if (module.captures_remaining == 0) {
+		module.is_capturing = false;
 	}
 }
 
@@ -495,15 +464,15 @@ void
 mp_process_pipeline_process_image(MPImage image)
 {
 	// If we haven't processed the previous frame yet, drop this one
-	if (frames_received != frames_processed && !is_capturing) {
+	if (module.frames_received != module.frames_processed && !module.is_capturing) {
 		//printf("Dropped frame at capture\n");
 		free(image.data);
 		return;
 	}
 
-	++frames_received;
+	++module.frames_received;
 
-	mp_pipeline_invoke(pipeline, (MPPipelineCallback)process_image, &image,
+	mp_pipeline_invoke(module.pipeline, (MPPipelineCallback)process_image, &image,
 			   sizeof(MPImage));
 }
 
@@ -519,58 +488,57 @@ capture()
 		exit(EXIT_FAILURE);
 	}
 
-	strcpy(burst_dir, tempdir);
+	strcpy(module.burst_dir, tempdir);
 
-	captures_remaining = burst_length;
+	module.captures_remaining = module.burst_length;
 }
 
 void
 mp_process_pipeline_capture()
 {
-	is_capturing = true;
+	module.is_capturing = true;
 
-	mp_pipeline_invoke(pipeline, capture, NULL, 0);
+	mp_pipeline_invoke(module.pipeline, capture, NULL, 0);
 }
 
 static void
 update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state)
 {
-	camera = state->camera;
-	mode = state->mode;
+	module.camera = state->camera;
 
-	burst_length = state->burst_length;
+	module.burst_length = state->burst_length;
 
-	preview_width = state->preview_width;
-	preview_height = state->preview_height;
+	module.preview_width = state->preview_width;
+	module.preview_height = state->preview_height;
 
 	// gain_is_manual = state->gain_is_manual;
-	gain = state->gain;
-	gain_max = state->gain_max;
-	gain_min = state->gain_min;
+	module.gain = state->gain;
+	module.gain_max = state->gain_max;
+	module.gain_min = state->gain_min;
 
-	exposure_is_manual = state->exposure_is_manual;
-	exposure = state->exposure;
-	exposure_max = state->exposure_max;
-	exposure_min = state->exposure_min;
+	module.exposure_is_manual = state->exposure_is_manual;
+	module.exposure = state->exposure;
+	module.exposure_max = state->exposure_max;
+	module.exposure_min = state->exposure_min;
 
-	wb = state->wb;
-	focus = state->focus;
+	module.wb = state->wb;
+	module.focus = state->focus;
 
 	struct mp_main_state main_state = {
-		.camera = camera,
-		.mode = mode,
+		.camera = module.camera,
+		.mode = state->mode,
 		.is_present = state->is_present,
 		.gain_is_manual = state->gain_is_manual,
-		.gain = gain,
-		.gain_max = gain_max,
-		.gain_min = gain_min,
-		.exposure_is_manual = exposure_is_manual,
-		.exposure = exposure,
-		.exposure_max = exposure_max,
-		.exposure_min = exposure_min,
+		.gain = module.gain,
+		.gain_max = module.gain_max,
+		.gain_min = module.gain_min,
+		.exposure_is_manual = module.exposure_is_manual,
+		.exposure = module.exposure,
+		.exposure_max = module.exposure_max,
+		.exposure_min = module.exposure_min,
 		.has_auto_focus_continuous = state->has_auto_focus_continuous,
 		.has_auto_focus_start = state->has_auto_focus_start,
-		.focus = focus,
+		.focus = module.focus,
 	};
 	mp_main_update_state(&main_state);
 }
@@ -578,6 +546,6 @@ update_state(MPPipeline *pipeline, const struct mp_process_pipeline_state *state
 void
 mp_process_pipeline_update_state(const struct mp_process_pipeline_state *new_state)
 {
-	mp_pipeline_invoke(pipeline, (MPPipelineCallback)update_state, new_state,
+	mp_pipeline_invoke(module.pipeline, (MPPipelineCallback)update_state, new_state,
 			   sizeof(struct mp_process_pipeline_state));
 }

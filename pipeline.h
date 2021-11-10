@@ -4,6 +4,12 @@
 #include "device.h"
 #include <glib.h>
 
+struct _MPPipeline {
+	GMainContext *main_context;
+	GMainLoop *main_loop;
+	pthread_t thread;
+};
+
 typedef struct _MPPipeline MPPipeline;
 
 typedef void (*MPPipelineCallback)(MPPipeline *, const void *);

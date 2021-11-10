@@ -283,15 +283,19 @@ quick_preview_rggb10(uint32_t *dst, const uint32_t dst_width,
 			uint32_t color;
 			switch (format) {
 			case MP_PIXEL_FMT_BGGR10:
+			case MP_PIXEL_FMT_BGGR16:
 				color = pack_rgb(b3, (b1 + b2) / 2, b0);
 				break;
 			case MP_PIXEL_FMT_GBRG10:
+			case MP_PIXEL_FMT_GBRG16:
 				color = pack_rgb(b2, (b0 + b3) / 2, b1);
 				break;
 			case MP_PIXEL_FMT_GRBG10:
+			case MP_PIXEL_FMT_GRBG16:
 				color = pack_rgb(b1, (b0 + b3) / 2, b2);
 				break;
 			case MP_PIXEL_FMT_RGGB10:
+			case MP_PIXEL_FMT_RGGB16:
 				color = pack_rgb(b0, (b1 + b2) / 2, b3);
 				break;
 			default:
@@ -410,6 +414,11 @@ quick_preview(uint32_t *dst, const uint32_t dst_width, const uint32_t dst_height
 	case MP_PIXEL_FMT_GBRG10:
 	case MP_PIXEL_FMT_GRBG10:
 	case MP_PIXEL_FMT_RGGB10:
+	case MP_PIXEL_FMT_BGGR16:
+	case MP_PIXEL_FMT_GBRG16:
+	case MP_PIXEL_FMT_GRBG16:
+	case MP_PIXEL_FMT_RGGB16:
+	case 0:
 		quick_preview_rggb10(dst, dst_width, dst_height, src, src_width,
 				     src_height, format, rotation, mirrored,
 				     colormatrix, blacklevel, skip);

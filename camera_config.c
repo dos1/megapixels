@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <glib.h>
 #include <assert.h>
+#include <bsd/string.h>
+
+#define CONFIG_FORMAT "%s/millipixels/config/%s.ini"
 
 static struct mp_camera_config cameras[MP_MAX_CAMERAS];
 static size_t num_cameras = 0;
@@ -49,7 +52,7 @@ find_config(char *conffile)
 		}
 
 		// Check for a config file in XDG_CONFIG_HOME
-		sprintf(conffile, "%s/megapixels/config/%s.ini", xdg_config_home,
+		sprintf(conffile, CONFIG_FORMAT, xdg_config_home,
 			buf);
 		if (access(conffile, F_OK) != -1) {
 			printf("Found config file at %s\n", conffile);
@@ -57,13 +60,13 @@ find_config(char *conffile)
 		}
 
 		// Check user overridden /etc/megapixels/config/$dt.ini
-		sprintf(conffile, "%s/megapixels/config/%s.ini", SYSCONFDIR, buf);
+		sprintf(conffile, CONFIG_FORMAT, SYSCONFDIR, buf);
 		if (access(conffile, F_OK) != -1) {
 			printf("Found config file at %s\n", conffile);
 			return true;
 		}
 		// Check packaged /usr/share/megapixels/config/$dt.ini
-		sprintf(conffile, "%s/megapixels/config/%s.ini", DATADIR, buf);
+		sprintf(conffile, CONFIG_FORMAT, DATADIR, buf);
 		if (access(conffile, F_OK) != -1) {
 			printf("Found config file at %s\n", conffile);
 			return true;
@@ -74,7 +77,7 @@ find_config(char *conffile)
 	}
 
 	// If all else fails, fall back to /etc/megapixels.ini
-	sprintf(conffile, "./megapixels.ini");
+	sprintf(conffile, "./millipixels.ini");
 	if (access(conffile, F_OK) != -1) {
 		printf("Found config file at %s\n", conffile);
 		return true;
@@ -168,6 +171,8 @@ config_ini_handler(void *user, const char *section, const char *name,
 			strcpy(cc->dev_name, value);
 		} else if (strcmp(name, "media-driver") == 0) {
 			strcpy(cc->media_dev_name, value);
+		} else if (strcmp(name, "libcamera-id") == 0) {
+			strlcpy(cc->libcamera_id, value, 260);
 		} else if (strcmp(name, "media-links") == 0) {
 			char **linkdefs = g_strsplit(value, ",", 0);
 
