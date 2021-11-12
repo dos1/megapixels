@@ -80,6 +80,10 @@ static const char *pixel_format_names[MP_PIXEL_FMT_MAX] = {
     "\001\002\000\001",//    "GBRG10",
     "\001\000\002\001",//    "GRBG10",
     "\000\001\001\002",//    "RGGB10",
+    "\002\001\001\000",//    "BGGR16",
+    "\001\002\000\001",//    "GBRG16",
+    "\001\000\002\001",//    "GRBG16",
+    "\000\001\001\002",//    "RGGB16",
     "UYVY",//    does not apply
     "YUYV",//    does not apply
 };
