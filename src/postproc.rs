@@ -110,20 +110,14 @@ fn post_process_task(
         .arg(capture_fname)
         .output();
 
-    let stdout = match output {
+    let line = match output {
         Ok(output) => {
             let stdout = output.stdout;
             let mut last_line = find_last_line(&stdout)
                 .map(Vec::from)
                 .unwrap_or(Vec::new());
             last_line.push(0); // terminating byte, just in case
-            match c::slice_as_ptr(&last_line) {
-                Ok(line) => Some(line),
-                Err(e) => {
-                    eprintln!("Failed to read script output: {}", e);
-                    None
-                }
-            }
+            Some(last_line)
         },
         Err(e) => {
             eprintln!("Failed to execute post-processor: {}", e);
@@ -131,8 +125,8 @@ fn post_process_task(
         },
     };
 
-    match stdout {
-        Some(stdout) => unsafe { c::mp_main_capture_completed(thumb, stdout) },
+    match line {
+        Some(line) => unsafe { c::mp_main_capture_completed(thumb, line.as_ptr() as _) },
         None => unsafe { c::notify_processing_finished(thumb) },
     }
 }
