@@ -1,3 +1,23 @@
+millipixels (0.18.0-1) experimental; urgency=medium
+
+  [ Dorota Czaplejewicz ]
+  * icon: Differentiated from Megapixels
+  * Frame doesn't need to be global
+  * processing_script doesn't need to be global
+  * process_pipeline: Rein in globals
+  * Pass less globals to processing
+  * comments
+  * Fix spinner on postprocess hang
+  * readme
+  * debian: Add rustc dependency
+  * Update branding
+  * processing: Fix use-after-free
+
+  [ Sebastian Krzyszkowiak ]
+  * process_pipeline: Add missing CFA patterns for RAW16 formats
+
+ -- Dorota Czaplejewicz <dorota.czaplejewicz@puri.sm>  Mon, 13 Dec 2021 15:15:56 +0000
+
 millipixels (0.17.0-1) experimental; urgency=medium
 
   [ Martijn Braam ]
