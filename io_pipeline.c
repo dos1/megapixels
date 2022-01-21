@@ -4,6 +4,7 @@
 #include "camera.h"
 #include "pipeline.h"
 #include "process_pipeline.h"
+#include "src/focus.h"
 #include <string.h>
 #include <glib.h>
 #include <fcntl.h>
@@ -61,6 +62,7 @@ struct device_info {
 	unsigned int interface_pad_id;
 
 	int video_fd;
+	int focus_fd;
 };
 
 static struct camera_info cameras[MP_MAX_CAMERAS];
@@ -117,6 +119,11 @@ setup_camera(MPDeviceList **device_list, const struct mp_camera_config *config)
 
 		// Initialize new device
 		struct device_info *info = &devices[device_index];
+		// Grab focus
+		if (config->hasfocus) {
+			info->focus_fd = open_focus_fd();
+		}
+
 		info->media_dev_name = config->media_dev_name;
 		info->dev_name = config->dev_name;
 		info->device = mp_device_list_find_remove(device_list,
@@ -356,7 +363,7 @@ capture(MPPipeline *pipeline, const void *data)
 
 		mp_camera_start_capture(info->camera);
 		if (camera->hasfocus) {
-			mp_write_dw9714_focus(desired_controls.focus);
+			set_focus(desired_controls.focus);
 		}
 	}
 
@@ -516,7 +523,7 @@ on_frame(MPImage image, void *data)
 
 			if (camera->hasfocus) {
 				printf("preview mode, set focus\n");
-				mp_write_dw9714_focus(desired_controls.focus);
+				set_focus(desired_controls.focus);
 			}
 
 			update_process_pipeline();

@@ -5,6 +5,9 @@ use std::os::raw::c_void;
 use std::process;
 use std::thread;
 
+// Needed to import the symbols.
+// Just adding another source file in meson is not enough.
+mod focus;
 
 pub mod c {
     use std::ffi;

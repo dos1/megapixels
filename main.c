@@ -23,6 +23,7 @@
 #include "quickpreview.h"
 #include "io_pipeline.h"
 #include "wb.h"
+#include "src/focus.h"
 
 enum user_control { USER_CONTROL_ISO, USER_CONTROL_SHUTTER, USER_CONTROL_WHITE_BALANCE, USER_CONTROL_FOCUS };
 
@@ -130,7 +131,7 @@ update_state(const struct mp_main_state *state)
 			has_auto_focus_continuous = state->has_auto_focus_continuous;
 			has_auto_focus_start = state->has_auto_focus_start;
 			if (camera->hasfocus) {
-				mp_write_dw9714_focus(focus);
+				set_focus(focus);
 			}
 		}
 	}
@@ -732,7 +733,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 		if (value != focus) {
 			focus = DW9714_FOCUS_VAL_MAX - value;
 			has_changed = true;
-			mp_write_dw9714_focus(focus);
+			set_focus(focus);
 		}
 		break;
 	}
