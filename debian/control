@@ -23,8 +23,8 @@ Architecture: any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
- i2c-tools,
  libraw-bin,
+ v4l-utils,
 Recommends:
  dcraw,
  graphicsmagick-imagemagick-compat | imagemagick,

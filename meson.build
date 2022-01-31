@@ -33,6 +33,7 @@ endif
 
 rust_lib = static_library('millrust',
     'src/postproc.rs',
+    'src/focus.rs',
     rust_crate_type : 'staticlib'
 )
 
