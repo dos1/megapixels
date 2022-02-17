@@ -6,6 +6,7 @@
 #include <linux/videodev2.h>
 #include <linux/media.h>
 #include <linux/v4l2-subdev.h>
+#include <math.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -626,7 +627,7 @@ on_preview_tap(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 						     false);
 			gtk_adjustment_set_lower(control_slider, 0.0);
 			gtk_adjustment_set_upper(control_slider, DW9714_FOCUS_VAL_MAX);
-			gtk_adjustment_set_value(control_slider, DW9714_FOCUS_VAL_MAX - focus);
+			gtk_adjustment_set_value(control_slider, (1.0 - sqrt(focus / (double)DW9714_FOCUS_VAL_MAX)) * DW9714_FOCUS_VAL_MAX);
 		}
 		gtk_widget_show(control_box);
 
@@ -731,7 +732,7 @@ on_control_slider_changed(GtkAdjustment *widget, gpointer user_data)
 	}
 	case USER_CONTROL_FOCUS:
 		if (value != focus) {
-			focus = DW9714_FOCUS_VAL_MAX - value;
+			focus = round(DW9714_FOCUS_VAL_MAX * pow(1.0 - value / (double)DW9714_FOCUS_VAL_MAX, 2));
 			has_changed = true;
 			set_focus(focus);
 		}
