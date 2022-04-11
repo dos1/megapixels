@@ -15,6 +15,10 @@ static std::variant<std::tuple<Size, PixelFormat>, int> setMode(std::string desi
 	std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
 	cm->start();
 	auto camera = cm->get(desired);
+	if (!camera) {
+		printf("No such camera: %s", desired.c_str());
+		return -1;
+	}
 	camera->acquire();
 	std::unique_ptr<CameraConfiguration> config =
 		camera->generateConfiguration( { StreamRole::Viewfinder } );
