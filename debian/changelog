@@ -1,3 +1,18 @@
+millipixels (0.19.0-1) experimental; urgency=medium
+
+  [ Dorota Czaplejewicz ]
+  * librem 5: Use media controls focus
+  * Remove sudo rule
+  * libcam: Inform about missing camera
+  * Change camera ids
+  * Update older Librem5 platforms with libcamera ids
+  * Require kernel 5.17
+
+  [ Sebastian Krzyszkowiak ]
+  * Square the focus slider's scale
+
+ -- Dorota Czaplejewicz <dorota.czaplejewicz@puri.sm>  Tue, 12 Apr 2022 16:17:07 +0000
+
 millipixels (0.18.0-1) experimental; urgency=medium
 
   [ Dorota Czaplejewicz ]
