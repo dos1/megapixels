@@ -29,5 +29,7 @@ Recommends:
  dcraw,
  graphicsmagick-imagemagick-compat | imagemagick,
  libimage-exiftool-perl,
+Breaks:
+ linux-image-librem5 (<<5.16.18pureos2),
 Description: GTK3 camera app for mobile using libcamera
  Millipixels is a GTK3 camera application that knows how to deal with libcamera
