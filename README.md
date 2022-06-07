@@ -8,6 +8,8 @@ It's forked off [Megapixels](https://sr.ht/~martijnbraam/Megapixels/)
 
 ## Building
 
+All dependencies are listed in the control file: https://source.puri.sm/Librem5/millipixels/-/blob/master/debian/control
+
 ```shell-session
 $ meson build
 $ cd build
