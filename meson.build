@@ -84,6 +84,7 @@ install_data([
   'config/purism,librem5r2.ini',
   'config/purism,librem5r3.ini',
   'config/purism,librem5r4.ini',
+  'config/motorola,osprey.ini',
   ],
   install_dir : get_option('datadir') / 'millipixels/config/')
 
