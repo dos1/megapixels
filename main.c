@@ -559,7 +559,7 @@ on_zbar_code_tapped(GtkWidget *widget, const MPZBarCode *code)
 			}
 		case GTK_RESPONSE_ACCEPT:
 			gtk_clipboard_set_text(
-				gtk_clipboard_get(GDK_SELECTION_PRIMARY),
+				gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
 				data, -1);
 		case GTK_RESPONSE_CANCEL:
 			break;
